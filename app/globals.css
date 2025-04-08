@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 94%;  /* #F0F0F0 in HSL */
+    --foreground: 0 0% 2%;  /* Almost black */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 0 0% 2%;     /* Black */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 0 0% 75%;  /* True Gray */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 15 56% 50%;   /* Copper */
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 1rem;
+
+    /* Colors */
+    --color-primary: #050505;
+    --color-true-gray: #BFBFBF;
+    --color-mid-gray: #E6E6E6;
+    --color-off-white: #F5F5F5;
+    --color-white: #FFFFFF;
+    --color-orange: #C65F39;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+
+  body {
+    font-family: "Söhne", sans-serif;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+    color: var(--color-primary);
+    background-color: #F0F0F0;  /* Add explicit background color */
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: "Söhne", sans-serif;
+    line-height: 120%;
+    letter-spacing: -0.01em;
+    vertical-align: middle;
+  }
+
+  .large-heading {
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 120%;
+
+  }
+
+  .mid-heading {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 120%;
+
+  }
+
+  .description-text {
+    font-size: 19px;
+    font-weight: 300;
+    line-height: 120%;
+    color: var(--color-primary);
+  }
+
+  .body-text {
+    font-size: 16px;
+    line-height: 150%;
+    color: var(--color-true-gray);
+  }
+
+  .mini-text {
+    font-size: 13px;
+    line-height: 150%;
+    color: var(--color-primary);
+  }
+
+  * {
+    @apply border-border font-sans;
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  scroll-behavior: smooth;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+.snap-x {
+  scroll-snap-type: x mandatory;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+@keyframes slideArrows {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.arrow-slide {
+  animation: slideArrows 0.6s ease-in-out infinite;
+}
+
+@keyframes slideArrowDiagonal {
+  0% {
+    opacity: 0;
+    transform: translate3d(-15px, 10px, 0px) rotate(-45deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(-45deg);
+  }
+}
+
+.arrow-icon {
+  position: absolute;
+  width: 1em;
+  height: 1em;
+  transform: rotate(-45deg);
+  transition: all 0.3s ease;
+}
+
+.group:hover .arrow-icon {
+  animation: slideArrowDiagonal 0.3s ease forwards;
+}
+
