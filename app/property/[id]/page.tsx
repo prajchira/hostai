@@ -3,6 +3,8 @@ import PropertyDetail from "@/components/property-detail"
 import { Metadata } from 'next'
 import { PrefetchWrapper } from "@/components/prefetch-wrapper"
 import { formatUrlPath } from "@/lib/utils"
+import { Suspense } from 'react'
+import LoadingProperty from "@/components/loading-property"
 
 // Add this helper function
 function shouldSkipCityPage(state: string, city: string): boolean {
@@ -32,9 +34,11 @@ export default async function PropertyPage({ params }: { params: { id: string } 
   }
 
   return (
-    <PrefetchWrapper paths={prefetchPaths}>
-      <PropertyDetail property={property} companies={companies} />
-    </PrefetchWrapper>
+    <Suspense fallback={<LoadingProperty />}>
+      <PrefetchWrapper paths={prefetchPaths}>
+        <PropertyDetail property={property} companies={companies} />
+      </PrefetchWrapper>
+    </Suspense>
   );
 }
 
