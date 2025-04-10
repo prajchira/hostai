@@ -51,7 +51,6 @@ export default function HomeContent({ companies }: HomeContentProps) {
 
   // Get first 10 property paths for prefetching
   const propertyPaths = companies
-    .slice(0, 10)
     .map(company => `/property/${company.actualID}`);
 
   // Combine country and property paths
