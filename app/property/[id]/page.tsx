@@ -19,19 +19,23 @@ export default async function PropertyPage({ params }: { params: { id: string } 
     return <div>Property not found</div>;
   }
 
-  // Get breadcrumb paths for prefetching
-  const prefetchPaths = [
-    '/',  // Home
-    `/${formatUrlPath(property.country)}`,  // Country page
-    `/${formatUrlPath(property.country)}/${formatUrlPath(property.state)}`,  // State page
-  ];
-
-  // Only add city path if it's different from state
-  if (!shouldSkipCityPage(property.state, property.location)) {
-    prefetchPaths.push(
-      `/${formatUrlPath(property.country)}/${formatUrlPath(property.state)}/${formatUrlPath(property.location)}`
-    );
-  }
+  // Get paths for prefetching
+  const prefetchPaths = {
+    countryPaths: [`/${formatUrlPath(property.country)}`],
+    topPropertyPaths: [
+      '/',
+      `/${formatUrlPath(property.country)}/${formatUrlPath(property.state)}`,
+      // Only include city path if it shouldn't be skipped
+      ...(shouldSkipCityPage(property.state, property.location) 
+        ? [] 
+        : [`/${formatUrlPath(property.country)}/${formatUrlPath(property.state)}/${formatUrlPath(property.location)}`]
+      )
+    ],
+    remainingPropertyPaths: companies
+      .filter(p => p.id !== property.id)
+      .slice(0, 5)
+      .map(p => `/property/${p.actualID}`)
+  };
 
   return (
     <Suspense fallback={<LoadingProperty />}>

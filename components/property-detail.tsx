@@ -170,47 +170,47 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
                   </div>
                   <div className="flex flex-wrap gap-2 my-5">
 
-                  <Badge variant="outline" className="flex items-center gap-1 bg-white border-gray-200 font-normal text-gray-700">
-                        {property.location}
-                      </Badge>
+                    <Badge variant="outline" className="flex items-center gap-1 bg-white border-gray-200 font-normal text-gray-700">
+                          {property.location}
+                        </Badge>
 
-                      <Badge variant="outline" className="flex items-center gap-1 bg-white border-gray-200 font-normal text-gray-700">
-                        {property.state}
-                      </Badge>
-
-                      {property.country && (
                         <Badge variant="outline" className="flex items-center gap-1 bg-white border-gray-200 font-normal text-gray-700">
-                          {property.country}
+                          {property.state}
                         </Badge>
-                      )}
 
-                      {/* {company.tags?.includes("Verified") && (
-                        <Badge variant="outline" className="flex items-center gap-5 bg-white border-gray-200 font-normal text-gray-700">
-                          <CheckCircle className="h-4 w-4 text-blue-500" />
-                          Verified
-                        </Badge>
-                      )} */}
+                        {property.country && (
+                          <Badge variant="outline" className="flex items-center gap-1 bg-white border-gray-200 font-normal text-gray-700">
+                            {property.country}
+                          </Badge>
+                        )}
 
-                      {property.isVerified && (
-                        <Badge variant="outline" className="flex items-center gap-5 bg-white border-gray-200 font-normal text-gray-700">
-                          ✓ Verified
-                        </Badge>
-                      )}
+                        {/* {company.tags?.includes("Verified") && (
+                          <Badge variant="outline" className="flex items-center gap-5 bg-white border-gray-200 font-normal text-gray-700">
+                            <CheckCircle className="h-4 w-4 text-blue-500" />
+                            Verified
+                          </Badge>
+                        )} */}
 
-                      <Badge variant="outline" className="flex items-center gap-0.5 bg-white border-gray-200 py-2 font-normal text-gray-700">
-                        <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                        {property.rating ? property.rating.toFixed(2) : 'N/A'}
-                      </Badge>
+                        {property.isVerified && (
+                          <Badge variant="outline" className="flex items-center gap-5 bg-white border-gray-200 font-normal text-gray-700">
+                            ✓ Verified
+                          </Badge>
+                        )}
 
-                      {property.tags && (
                         <Badge variant="outline" className="flex items-center gap-0.5 bg-white border-gray-200 py-2 font-normal text-gray-700">
-                          {property.tags}
+                          <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                          {property.rating ? property.rating.toFixed(2) : 'N/A'}
                         </Badge>
-                      )}
 
-                    </div>
+                        {property.tags && (
+                          <Badge variant="outline" className="flex items-center gap-0.5 bg-white border-gray-200 py-2 font-normal text-gray-700">
+                            {property.tags}
+                          </Badge>
+                        )}
+
+                      </div>
+                  </div>
                 </div>
-              </div>
 
               {/* Description */}
               <div className="prose max-w-none mb-12">
@@ -221,110 +221,123 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
                 )}
               </div>
 
-              {/* Property Images Slider */}
-              {property.images.length > 0 && (
-                <div className="mb-12">
-                  {/* Main Image Display */}
-                  <div className="relative aspect-[16/9] rounded-[var(--radius)] overflow-hidden mb-4">
-                    <Image
-                      src={property.images[currentImageIndex]}
-                      alt={`Property image ${currentImageIndex + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 66vw"
-                      priority
-                      placeholder="blur"
-                      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRg..."
-                    />
-                    <button 
-                      onClick={prevImage}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-[var(--radius)] text-white hover:bg-black/75"
-                    >
-                      <ChevronLeft className="h-6 w-6" />
-                    </button>
-                    <button 
-                      onClick={nextImage}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-[var(--radius)] text-white hover:bg-black/75"
-                    >
-                      <ChevronRight className="h-6 w-6" />
-                    </button>
-                  </div>
+                {/* Property Images Slider */}
+                {property.images.length > 0 && (
+                  <div className="mb-12">
+                    {/* Main Image Display */}
+                    <div className="relative aspect-[16/9] rounded-[var(--radius)] overflow-hidden mb-4">
+                      <Image
+                        src={property.images[currentImageIndex]}
+                        alt={`Property image ${currentImageIndex + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 66vw"
+                        priority
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+                      />
+                      <button 
+                        onClick={prevImage}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-[var(--radius)] text-white hover:bg-black/75"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button 
+                        onClick={nextImage}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-[var(--radius)] text-white hover:bg-black/75"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </div>
 
-                  {/* Thumbnail Strip */}
-                  <div className="relative">
-                    <div 
-                      id="thumbnail-strip"
-                      className="flex gap-4 overflow-x-auto scrollbar-hid rounded-[var(--radius)]"
-                    >
-                      {[...property.images, ...property.images, ...property.images].map((image, index) => {
-                        const thumbnailRef = React.useRef<HTMLButtonElement>(null);
-                        const actualIndex = index % property.images.length;
-                        
-                        return (
-                          <button
-                            ref={thumbnailRef}
-                            key={index}
-                            data-index={actualIndex}
-                            onClick={() => {
-                              setCurrentImageIndex(actualIndex);
-                              
-                              // Get the clicked thumbnail element and container
-                              const thumbnail = thumbnailRef.current;
-                              const container = document.getElementById('thumbnail-strip');
-                              
-                              if (thumbnail && container) {
-                                // Calculate the scroll position that would put this thumbnail at the left
-                                const newScrollPosition = thumbnail.offsetLeft - container.offsetLeft;
+                    {/* Thumbnail Strip */}
+                    <div className="relative">
+                      <div 
+                        id="thumbnail-strip"
+                        className="flex gap-4 overflow-x-auto scrollbar-hid rounded-[var(--radius)]"
+                      >
+                        {[...property.images, ...property.images, ...property.images].map((image, index) => {
+                          const thumbnailRef = React.useRef<HTMLButtonElement>(null);
+                          const actualIndex = index % property.images.length;
+                          
+                          return (
+                            <button
+                              ref={thumbnailRef}
+                              key={index}
+                              data-index={actualIndex}
+                              onClick={() => {
+                                setCurrentImageIndex(actualIndex);
                                 
-                                // Smooth scroll to position
-                                container.scrollTo({
-                                  left: newScrollPosition,
-                                  behavior: 'smooth'
-                                });
-                              }
-                            }}
-                            className={`relative flex-shrink-0 w-48 h-32 rounded-[var(--radius)] overflow-hidden transition-all duration-200 ${
-                              actualIndex === currentImageIndex 
-                                ? 'opacity-100 ring-2 ring-accent' 
-                                : 'opacity-50 hover:opacity-75'
-                            }`}
-                          >
-                            <Image
-                              src={image}
-                              alt={`Thumbnail ${actualIndex + 1}`}
-                              fill
-                              className="object-cover"
-                              sizes="192px"
-                              loading="lazy"
-                            />
-                          </button>
-                        );
-                      })}
+                                // Get the clicked thumbnail element and container
+                                const thumbnail = thumbnailRef.current;
+                                const container = document.getElementById('thumbnail-strip');
+                                
+                                if (thumbnail && container) {
+                                  // Calculate the scroll position that would put this thumbnail at the left
+                                  const newScrollPosition = thumbnail.offsetLeft - container.offsetLeft;
+                                  
+                                  // Smooth scroll to position
+                                  container.scrollTo({
+                                    left: newScrollPosition,
+                                    behavior: 'smooth'
+                                  });
+                                }
+                              }}
+                              className={`relative flex-shrink-0 w-48 h-32 rounded-[var(--radius)] overflow-hidden transition-all duration-200 ${
+                                actualIndex === currentImageIndex 
+                                  ? 'opacity-100 ring-2 ring-accent' 
+                                  : 'opacity-50 hover:opacity-75'
+                              }`}
+                            >
+                              <Image
+                                src={image}
+                                alt={`Thumbnail ${actualIndex + 1}`}
+                                fill
+                                className="object-cover"
+                                sizes="192px"
+                                loading="lazy"
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* HTML Blog Content */}
-              {property.blog && (
-                <div 
-                  dangerouslySetInnerHTML={{ 
-                    __html: property.blog 
-                  }} 
-                  className="[&_p]:mb-4 [&_h2]:mid-heading [&_h2]:mb-4 [&_h3]:mid-heading [&_h3]:mb-3 [&_h3]:mb-3"
-                />
-              )}
-
-              {/* Key Features Summary */}
-              {property.keyFeatures && property.keyFeatures.length > 0 && (
-                <div className="mt-8 mb-12 p-6 bg-gray-50 rounded-[var(--radius)] border border-gray-200">
+                {/* HTML Blog Content */}
+                {property.blog && (
                   <div 
-                    className="space-y-4 [&_li]:before:content-['•'] [&_li]:before:mr-4 [&_li]:before:min-w-[1rem] [&_h3]:mid-heading" 
-                    dangerouslySetInnerHTML={{ __html: property.keyFeatures }} 
+                    dangerouslySetInnerHTML={{ 
+                      __html: property.blog 
+                    }} 
+                    className="
+                      space-y-8 
+                      [&_p]:mb-8 
+                      [&_h2]:large-heading 
+                      [&_h2]:font-weight-400
+                      [&_h2]:mt-12 
+                      [&_h2]:mb-6 
+                      [&_h3]:large-heading 
+                      [&_h3]:font-weight-100 
+                      [&_h3]:mt-8 
+                      [&_h3]:mb-4
+                      [&_ul]:mb-8
+                      [&_li]:mb-2
+                    "
                   />
-                </div>
-              )}
-            </div>
+                )}
+
+                {/* Key Features Summary */}
+                {property.keyFeatures && property.keyFeatures.length > 0 && (
+                  <div className="mt-8 mb-12 p-6 bg-gray-50 rounded-[var(--radius)] border border-gray-200">
+                    <div 
+                      className="space-y-4 [&_li]:before:content-['•'] [&_li]:before:mr-4 [&_li]:before:min-w-[1rem] [&_h3]:mid-heading" 
+                      dangerouslySetInnerHTML={{ __html: property.keyFeatures }} 
+                    />
+                  </div>
+                )}
+              </div>
 
             
 
@@ -361,123 +374,123 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
                   </div>
                 </div>
 
-                {/* Contact Manager Button */}
-                <div className="mb-4">
-                  <ContactManagerDialog 
-                    isOpen={isContactOpen}
-                    onClose={() => setIsContactOpen(false)}
-                    propertyManagerName={property.name}
-                  />
-                  <Button 
-                    className="w-full bg-accent hover:bg-accent-hover py-6 text-base"
-                    onClick={() => setIsContactOpen(true)}
-                  >
-                    Contact manager
-                  </Button>
-                </div>
-
-                {/* Claim Profile - Only show if not verified */}
-                {!property.isVerified && (
+                  {/* Contact Manager Button */}
                   <div className="mb-4">
+                    <ContactManagerDialog 
+                      isOpen={isContactOpen}
+                      onClose={() => setIsContactOpen(false)}
+                      propertyManagerName={property.name}
+                    />
                     <Button 
-                      className="w-full bg-white border border-gray-200 hover:bg-gray-50 py-6 text-base text-black"
+                      className="w-full bg-accent hover:bg-accent-hover py-6 text-base"
                       onClick={() => setIsContactOpen(true)}
                     >
-                      Claim Profile
+                      Contact manager
                     </Button>
                   </div>
-                )}
 
-                {/* More Info Section */}
-                <div className="bg-white rounded-[var(--radius)] border p-4">
-                  <h2 className="mid-heading mb-4">More Info</h2>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="body-text text-gray-600">Country</span>
-                      <span className="body-text text-[#050505]">{property.country}</span>
+                  {/* Claim Profile - Only show if not verified */}
+                  {!property.isVerified && (
+                    <div className="mb-4">
+                      <Button 
+                        className="w-full bg-white border border-gray-200 hover:bg-gray-50 py-6 text-base text-black"
+                        onClick={() => setIsContactOpen(true)}
+                      >
+                        Claim Profile
+                      </Button>
                     </div>
+                  )}
+
+                  {/* More Info Section */}
+                  <div className="bg-white rounded-[var(--radius)] border p-4">
+                    <h2 className="mid-heading mb-4">More Info</h2>
                     
-                    <div className="flex justify-between items-center">
-                      <span className="body-text text-gray-600">State</span>
-                      <span className="body-text text-[#050505]">{property.state}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="body-text text-gray-600">City</span>
-                      <span className="body-text text-[#050505]">{property.location}</span>
-                    </div>
-                    {property.yearFounded && (
+                    <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                      <span className="body-text text-gray-600">Year Founded</span>
-                      <span className="body-text text-[#050505]">{property.yearFounded}</span>
-                    </div>
-                    )}
-                    {property.employees && (
-                      <div>
-                        <h3 className="body-text text-gray-600">Employees</h3>
-                        <p className="body-text text-[#050505]">{property.employees}</p>
+                        <span className="body-text text-gray-600">Country</span>
+                        <span className="body-text text-[#050505]">{property.country}</span>
                       </div>
-                    )}
-                    <div>
-                      <h3 className="body-text text-gray-600">Links</h3>
-                      <div className="flex gap-4 mt-2">
-                        {property.website && (
-                          <a href={property.website} target="_blank" rel="noopener noreferrer">
-                            <Globe className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
-                          </a>
-                        )}
-                        {property.airbnbUrl && (
-                          <a href={property.airbnbUrl} target="_blank" rel="noopener noreferrer">
-                            <House className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
-                          </a>
-                        )}
-                        {property.socialMedia?.facebook && (
-                          <a href={property.socialMedia.facebook} target="_blank" rel="noopener noreferrer">
-                            <Facebook className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
-                          </a>
-                        )}
-                        {property.socialMedia?.twitter && (
-                          <a href={property.socialMedia.twitter} target="_blank" rel="noopener noreferrer">
-                            <Twitter className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
-                          </a>
-                        )}
-                        {property.socialMedia?.linkedin && (
-                          <a href={property.socialMedia.linkedin} target="_blank" rel="noopener noreferrer">
-                            <Linkedin className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
-                          </a>
-                        )}
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="body-text text-gray-600">State</span>
+                        <span className="body-text text-[#050505]">{property.state}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="body-text text-gray-600">City</span>
+                        <span className="body-text text-[#050505]">{property.location}</span>
+                      </div>
+                      {property.yearFounded && (
+                        <div className="flex justify-between items-center">
+                        <span className="body-text text-gray-600">Year Founded</span>
+                        <span className="body-text text-[#050505]">{property.yearFounded}</span>
+                      </div>
+                      )}
+                      {property.employees && (
+                        <div>
+                          <h3 className="body-text text-gray-600">Employees</h3>
+                          <p className="body-text text-[#050505]">{property.employees}</p>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="body-text text-gray-600">Links</h3>
+                        <div className="flex gap-4 mt-2">
+                          {property.website && (
+                            <a href={property.website} target="_blank" rel="noopener noreferrer">
+                              <Globe className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
+                            </a>
+                          )}
+                          {property.airbnbUrl && (
+                            <a href={property.airbnbUrl} target="_blank" rel="noopener noreferrer">
+                              <House className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
+                            </a>
+                          )}
+                          {property.socialMedia?.facebook && (
+                            <a href={property.socialMedia.facebook} target="_blank" rel="noopener noreferrer">
+                              <Facebook className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
+                            </a>
+                          )}
+                          {property.socialMedia?.twitter && (
+                            <a href={property.socialMedia.twitter} target="_blank" rel="noopener noreferrer">
+                              <Twitter className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
+                            </a>
+                          )}
+                          {property.socialMedia?.linkedin && (
+                            <a href={property.socialMedia.linkedin} target="_blank" rel="noopener noreferrer">
+                              <Linkedin className="h-5 w-5 text-gray-600 hover:text-[#C65F39] transition-colors" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Full width suggested companies section */}
-          <div>
-            <h1 className="large-heading mb-6">Suggested Companies</h1>
-            
-            {/* Similar Properties in City */}
-            <div className="mb-12">
-              <div className="border-t border-gray-200 pt-12 mb-12">
-                <h2 className="mid-heading mb-6">More Property Managers in {property.location}</h2>
-                {similarProperties.length > 0 ? (
-                  <PropertyList
-                    searchQuery=""
-                    country={property.country}
-                    state={property.state}
-                    city={property.location}
-                    companies={similarProperties}
-                  />
-                ) : (
-                  <div className="bg-white rounded-[var(--radius)] border p-8 text-center">
-                    <p className="text-gray-500">No other property managers found in {property.location}</p>
-                  </div>
-                )}
+            {/* Full width suggested companies section */}
+            <div>
+              <h1 className="large-heading mb-6">Suggested Companies</h1>
+              
+              {/* Similar Properties in City */}
+              <div className="mb-12">
+                <div className="border-t border-gray-200 pt-12 mb-12">
+                  <h2 className="mid-heading mb-6">More Property Managers in {property.location}</h2>
+                  {similarProperties.length > 0 ? (
+                    <PropertyList
+                      searchQuery=""
+                      country={property.country}
+                      state={property.state}
+                      city={property.location}
+                      companies={similarProperties}
+                    />
+                  ) : (
+                    <div className="bg-white rounded-[var(--radius)] border p-8 text-center">
+                      <p className="text-gray-500">No other property managers found in {property.location}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
             {/* Property Managers in State */}
             {stateProperties.length > 0 && (
