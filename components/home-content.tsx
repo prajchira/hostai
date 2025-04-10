@@ -49,6 +49,15 @@ export default function HomeContent({ companies }: HomeContentProps) {
     `/${formatUrlPath(country)}`
   );
 
+  // Get first 10 property paths for prefetching
+  const propertyPaths = companies
+    .slice(0, 10)
+    .map(company => `/property/${company.actualID}`);
+
+  // Combine country and property paths
+  const allPaths = [...countryPaths, ...propertyPaths];
+  
+
   // Update filtered companies when filters change
   useEffect(() => {
     const filtered = companies.filter(company => {
@@ -98,7 +107,7 @@ export default function HomeContent({ companies }: HomeContentProps) {
       </div>
 
       <PrefetchWrapper 
-        paths={countryPaths}
+        paths={allPaths}
       >
         <SearchFilters 
           onSearchChange={setSearchQuery}

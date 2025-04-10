@@ -11,10 +11,6 @@ function shouldSkipCityPage(state: string, city: string): boolean {
   return state.toLowerCase() === city.toLowerCase() && state.toLowerCase() !== 'new york';
 }
 
-// Add static rendering with ISR
-export const dynamic = 'force-static'
-export const revalidate = 3600 // Revalidate every hour
-
 export default async function PropertyPage({ params }: { params: { id: string } }) {
   const companies = await getPropertyCompanies();
   const property = companies.find(p => p.actualID === params.id);
@@ -23,7 +19,7 @@ export default async function PropertyPage({ params }: { params: { id: string } 
     return <div>Property not found</div>;
   }
 
-  // Get paths for prefetching
+  // Get breadcrumb paths for prefetching
   const prefetchPaths = [
     '/',  // Home
     `/${formatUrlPath(property.country)}`,  // Country page
@@ -46,14 +42,17 @@ export default async function PropertyPage({ params }: { params: { id: string } 
   );
 }
 
-// Generate static pages for all properties
+// Add static rendering with ISR
+export const revalidate = 3600 // Revalidate every hour
+
+// Generate static params for popular properties
 export async function generateStaticParams() {
   const companies = await getPropertyCompanies();
-  
-  // Generate all property pages statically
-  return companies.map((company) => ({
-    id: company.actualID
-  }));
+  return companies
+    .slice(0, 20) // Generate top 20 most viewed properties
+    .map((company) => ({
+      id: company.id,
+    }));
 }
 
 export async function generateMetadata({ params }: { 
