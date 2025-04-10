@@ -44,17 +44,25 @@ export default function HomeContent({ companies }: HomeContentProps) {
     .filter(country => FEATURED_COUNTRIES.includes(country))
     .sort();
     
-  // Create country paths for prefetching
-  const countryPaths = fetchingCountries.map(country => 
-    `/${formatUrlPath(country)}`
-  );
-
-  // Get first 10 property paths for prefetching
-  const propertyPaths = companies
-    .map(company => `/property/${company.actualID}`);
+    const priorityBatches = {
+      // Batch 1: Featured country paths (highest priority)
+      countryPaths: fetchingCountries.map(country => 
+        `/${formatUrlPath(country)}`
+      ),
+      
+      // Batch 2: First 10 property paths (medium priority)
+      topPropertyPaths: companies
+        .slice(0, 10)
+        .map(company => `/property/${company.actualID}`),
+      
+      // Batch 3: Remaining property paths (lower priority)
+      remainingPropertyPaths: companies
+        .slice(10)
+        .map(company => `/property/${company.actualID}`)
+    };
 
   // Combine country and property paths
-  const allPaths = [...countryPaths, ...propertyPaths];
+  const allPaths = priorityBatches;
   
 
   // Update filtered companies when filters change
@@ -105,8 +113,13 @@ export default function HomeContent({ companies }: HomeContentProps) {
         )}
       </div>
 
+
       <PrefetchWrapper 
-        paths={allPaths}
+        paths={{
+          countryPaths: allPaths.countryPaths,
+          topPropertyPaths: allPaths.topPropertyPaths,
+          remainingPropertyPaths: allPaths.remainingPropertyPaths
+        }}
       >
         <SearchFilters 
           onSearchChange={setSearchQuery}

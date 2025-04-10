@@ -34,23 +34,26 @@ export default async function CityPage({ params }: { params: { country: string; 
     const stateName = cityData?.state || decodedState;
     const countryName = cityData?.country || decodedCountry;
 
-    const filteredCompanies = properties.filter(company => 
-      company.country === countryName &&
-      company.state === stateName &&
-      company.location === cityName
-    );
+  const filteredCompanies = properties.filter(company => 
+    company.country === countryName &&
+    company.state === stateName &&
+    company.location === cityName
+  );
 
     const cityBio = await getCityData(cityName);
 
     return (
       <Suspense fallback={<LoadingSkeleton />}>
         <PrefetchWrapper 
-          paths={[
-            '/',  // Home page
-            `/${formatUrlPath(countryName)}`,  // Country page
-            `/${formatUrlPath(countryName)}/${formatUrlPath(stateName)}`,  // State page
-            ...filteredCompanies.slice(0, 5).map(p => `/property/${p.actualID}`)  // Top 5 properties
-          ]}
+          paths={{
+            countryPaths: [`/${formatUrlPath(countryName)}`],
+            topPropertyPaths: [
+              '/',  // Home page
+              `/${formatUrlPath(countryName)}/${formatUrlPath(stateName)}`,  // State page
+              ...filteredCompanies.slice(0, 5).map(p => `/property/${p.actualID}`)  // Top 5 properties
+            ],
+            remainingPropertyPaths: filteredCompanies.slice(5).map(p => `/property/${p.actualID}`)
+          }}
         >
           <main className="min-h-screen bg-gray-50">
             <div className="container mx-auto px-4 py-8">

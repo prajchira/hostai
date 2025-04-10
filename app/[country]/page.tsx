@@ -40,11 +40,17 @@ export default async function CountryPage({ params }: { params: { country: strin
 
   return (
     <PrefetchWrapper 
-      paths={[
-        '/',  // Home page 
-        ...statePaths,  // All state pages
-        ...topProperties  // First 5 property detail pages
-      ]}
+      paths={{
+        countryPaths: ['/'],
+        topPropertyPaths: [
+          ...statePaths.slice(0, 5),
+          ...topProperties.slice(0, 5)
+        ],
+        remainingPropertyPaths: [
+          ...statePaths.slice(5),
+          ...topProperties.slice(5)
+        ]
+      }}
     >
       <main className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
