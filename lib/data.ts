@@ -210,27 +210,207 @@ export const getPropertyCompanies = cache(
 // Add individual property getter with caching
 export const getPropertyById = cache(
     async (id: string): Promise<PropertyCompany | undefined> => {
-        const companies = await getPropertyCompanies();
-        return companies.find((c) => c.id === id);
+        try {
+            // Query directly using the URL-friendly ID
+            const records = await fetchWithRetry(() =>
+                base("Marketplace")
+                    .select({
+                        filterByFormula: `RECORD_ID() = '${id}'`,
+                        maxRecords: 1
+                    })
+                    .all()
+            );
+
+            if (!records || records.length === 0) return undefined;
+            const record = records[0];
+
+            // Get the linked record IDs
+            const countryId = (record.get("HQ Country") as string[])?.[0];
+            const stateId = (record.get("HQ State") as string[])?.[0];
+            const cityId = (record.get("HQ City") as string[])?.[0];
+
+            // Fetch location names
+            const [countryName, stateName, cityName] = await Promise.all([
+                countryId
+                    ? fetchLocationName("Countries", countryId, "Country Name")
+                    : Promise.resolve("Unknown Country"),
+                stateId
+                    ? fetchLocationName("States", stateId, "State Name")
+                    : Promise.resolve("Unknown State"),
+                cityId
+                    ? fetchLocationName("Cities", cityId, "City Name")
+                    : Promise.resolve("Unknown City"),
+            ]);
+
+            const name = record.get("Company Name")?.toString();
+            if (!name) return undefined;
+
+            // Get feature summary
+            const featureSummary = summaries.find(
+                (item) => item.id === record.id
+            )?.summary;
+
+            return {
+                actualID: record.id,
+                id: name.toLowerCase().replace(/\s+/g, "-"),
+                name,
+                logo: record.get("Company Logo")?.toString() || "/placeholder.svg",
+                website: record.get("Company Website")?.toString() || "#",
+                country: countryName,
+                state: stateName,
+                location: cityName,
+                introBlog: record.get("Intro Blog")?.toString(),
+                blog: record.get("Blog")?.toString(),
+                oneLiner: record.get("One liner")?.toString(),
+                facebook: record.get("Facebook")?.toString(),
+                linkedin: record.get("LinkedIn")?.toString(),
+                twitter: record.get("X Link")?.toString(),
+                employees: Number(record.get("Employees")) || undefined,
+                yearFounded: Number(record.get("Year Founded")) || undefined,
+                description: record.get("Intro Blog")?.toString(),
+                images: [
+                    record.get("Image 1")?.toString() || "",
+                    record.get("Image 2")?.toString() || "",
+                    record.get("Image 3")?.toString() || "",
+                    record.get("Image 4")?.toString() || "",
+                    record.get("Image 5")?.toString() || "",
+                ].filter(img => img && (img.startsWith("http") || img.startsWith("/"))),
+                airbnbUrl: record.get("Airbnb Host URL")?.toString(),
+                propertyCount: Number(record.get("A.Listings")) || undefined,
+                totalReviews: Number(record.get("A.Reviews")) || undefined,
+                rating: Number(record.get("A.Rating")) || undefined,
+                otherStates: record.get("Other States")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+                otherCities: record.get("Other Cities")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+                isVerified: record.get("Is Verified?") === true,
+                tags: record.get("Type")?.toString(),
+                socialMedia: {
+                    facebook: record.get("Facebook")?.toString(),
+                    linkedin: record.get("LinkedIn")?.toString(),
+                    twitter: record.get("X Link")?.toString(),
+                },
+                keyFeatures: featureSummary,
+            };
+        } catch (error) {
+            console.error("Error fetching property by ID:", error);
+            return undefined;
+        }
     }
 );
 
 // Add this function before getPropertyWithRelated
 export const getRelatedProperties = cache(
     async (id: string): Promise<PropertyCompany[]> => {
-        const companies = await getPropertyCompanies();
-        const property = companies.find((c) => c.id === id);
+        try {
+            // First get the main property's state and city directly
+            const mainRecord = await fetchWithRetry(() =>
+                base("Marketplace")
+                    .select({
+                        filterByFormula: `RECORD_ID() = '${id}'`,
+                        maxRecords: 1
+                    })
+                    .all()
+            );
 
-        if (!property) return [];
+            if (!mainRecord || mainRecord.length === 0) return [];
 
-        return companies
-            .filter(
-                (c) =>
-                    c.id !== id &&
-                    (c.state === property.state ||
-                        c.location === property.location)
-            )
-            .slice(0, 5);
+            const stateId = (mainRecord[0].get("HQ State") as string[])?.[0];
+            const cityId = (mainRecord[0].get("HQ City") as string[])?.[0];
+
+            if (!stateId && !cityId) return [];
+
+            // Build the filter formula for related properties
+            const filterFormula = `AND(
+                RECORD_ID() != '${id}',
+                OR(
+                    {HQ State} = '${stateId}',
+                    {HQ City} = '${cityId}'
+                )
+            )`;
+
+            // Fetch related records
+            const relatedRecords = await fetchWithRetry(() =>
+                base("Marketplace")
+                    .select({
+                        filterByFormula: filterFormula,
+                        maxRecords: 5
+                    })
+                    .all()
+            );
+
+            // Convert records to PropertyCompany objects
+            const relatedProperties = await Promise.all(
+                relatedRecords.map(async (record: Record<FieldSet>) => {
+                    const countryId = (record.get("HQ Country") as string[])?.[0];
+                    const stateId = (record.get("HQ State") as string[])?.[0];
+                    const cityId = (record.get("HQ City") as string[])?.[0];
+
+                    const [countryName, stateName, cityName] = await Promise.all([
+                        countryId
+                            ? fetchLocationName("Countries", countryId, "Country Name")
+                            : Promise.resolve("Unknown Country"),
+                        stateId
+                            ? fetchLocationName("States", stateId, "State Name")
+                            : Promise.resolve("Unknown State"),
+                        cityId
+                            ? fetchLocationName("Cities", cityId, "City Name")
+                            : Promise.resolve("Unknown City"),
+                    ]);
+
+                    const name = record.get("Company Name")?.toString();
+                    if (!name) return null;
+
+                    const featureSummary = summaries.find(
+                        (item) => item.id === record.id
+                    )?.summary;
+
+                    return {
+                        actualID: record.id,
+                        id: name.toLowerCase().replace(/\s+/g, "-"),
+                        name,
+                        logo: record.get("Company Logo")?.toString() || "/placeholder.svg",
+                        website: record.get("Company Website")?.toString() || "#",
+                        country: countryName,
+                        state: stateName,
+                        location: cityName,
+                        introBlog: record.get("Intro Blog")?.toString(),
+                        blog: record.get("Blog")?.toString(),
+                        oneLiner: record.get("One liner")?.toString(),
+                        facebook: record.get("Facebook")?.toString(),
+                        linkedin: record.get("LinkedIn")?.toString(),
+                        twitter: record.get("X Link")?.toString(),
+                        employees: Number(record.get("Employees")) || undefined,
+                        yearFounded: Number(record.get("Year Founded")) || undefined,
+                        description: record.get("Intro Blog")?.toString(),
+                        images: [
+                            record.get("Image 1")?.toString() || "",
+                            record.get("Image 2")?.toString() || "",
+                            record.get("Image 3")?.toString() || "",
+                            record.get("Image 4")?.toString() || "",
+                            record.get("Image 5")?.toString() || "",
+                        ].filter(img => img && (img.startsWith("http") || img.startsWith("/"))),
+                        airbnbUrl: record.get("Airbnb Host URL")?.toString(),
+                        propertyCount: Number(record.get("A.Listings")) || undefined,
+                        totalReviews: Number(record.get("A.Reviews")) || undefined,
+                        rating: Number(record.get("A.Rating")) || undefined,
+                        otherStates: record.get("Other States")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+                        otherCities: record.get("Other Cities")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+                        isVerified: record.get("Is Verified?") === true,
+                        tags: record.get("Type")?.toString(),
+                        socialMedia: {
+                            facebook: record.get("Facebook")?.toString(),
+                            linkedin: record.get("LinkedIn")?.toString(),
+                            twitter: record.get("X Link")?.toString(),
+                        },
+                        keyFeatures: featureSummary,
+                    };
+                })
+            );
+
+            return relatedProperties.filter((p): p is PropertyCompany => p !== null);
+        } catch (error) {
+            console.error("Error fetching related properties:", error);
+            return [];
+        }
     }
 );
 
