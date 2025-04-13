@@ -106,8 +106,17 @@ export const dynamic = 'force-static';
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  const paths = await getLocationPaths();
-  return paths.map(({ country, state }) => ({ country, state }));
+  const companies = await getPropertyCompanies();
+  const paths = new Set();
+  
+  companies.forEach(company => {
+    paths.add({
+      country: formatUrlPath(company.country),
+      state: formatUrlPath(company.state)
+    });
+  });
+  
+  return Array.from(paths);
 }
 
 export async function generateMetadata({ params }: { 
