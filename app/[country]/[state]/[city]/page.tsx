@@ -1,58 +1,50 @@
 import Link from "next/link";
-import { getPropertyCompanies, getCityData } from "@/lib/data";
+import { getPropertyCompanies, getCityData, PropertyCompany } from "@/lib/data";
 import { ChevronRight } from "lucide-react";
 import PropertySearch from "@/components/property-search";
 import { Metadata } from 'next'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { PrefetchWrapper } from "@/components/prefetch-wrapper"
-import { formatUrlPath } from '@/lib/utils'
+import { formatUrlPath, groupByNormalizedLocation } from '@/lib/utils'
 import { BreadcrumbNav } from "@/components/breadcrumb-nav"
 import { Suspense } from 'react'
 import { LoadingSkeleton } from "@/components/loading-skeleton"
+import { getLocationData, getPropertyById } from "@/lib/data";
+import { Record, FieldSet } from "airtable";
+import { getLocationPaths } from "@/lib/data";
 
 export default async function CityPage({ params }: { params: { country: string; state: string; city: string } }) {
   try {
-    const properties = await getPropertyCompanies();
-    
-    const decodedCity = decodeURIComponent(params.city);
-    const decodedState = decodeURIComponent(params.state);
-    const decodedCountry = decodeURIComponent(params.country);
+    // Get city data and bio in parallel
+    const { records, cityBio } = await getCityData(params.city, params.state, params.country);
 
-    const cityData = properties.find(
-      (company) => 
-        formatUrlPath(company.location) === formatUrlPath(decodedCity) &&
-        formatUrlPath(company.state) === formatUrlPath(decodedState) &&
-        formatUrlPath(company.country) === formatUrlPath(decodedCountry)
+    const uniqueCities = groupByNormalizedLocation(records, 'location');
+    const cityData = uniqueCities.find(
+      city => city.normalizedName === formatUrlPath(params.city)
     );
 
-    if (!cityData) {
-      return <div>City not found</div>;
-    }
+    const cityName = cityData?.displayName || params.city;
+    const cityProperties = cityData?.properties || [];
+    const stateName = cityProperties[0]?.state || params.state;
+    const countryName = cityProperties[0]?.country || params.country;
 
-    const cityName = cityData?.location || decodedCity;
-    const stateName = cityData?.state || decodedState;
-    const countryName = cityData?.country || decodedCountry;
-
-  const filteredCompanies = properties.filter(company => 
-    company.country === countryName &&
-    company.state === stateName &&
-    company.location === cityName
-  );
-
-    const cityBio = await getCityData(cityName);
+    // Get first 5 properties in this city for prefetching
+    const topCityProperties = cityProperties
+      .slice(0, 5)
+      .map(property => `/property/${property.actualID}`);
 
     return (
       <Suspense fallback={<LoadingSkeleton />}>
         <PrefetchWrapper 
           paths={{
-            countryPaths: [`/${formatUrlPath(countryName)}`],
-            topPropertyPaths: [
-              '/',  // Home page
-              `/${formatUrlPath(countryName)}/${formatUrlPath(stateName)}`,  // State page
-              ...filteredCompanies.slice(0, 5).map(p => `/property/${p.actualID}`)  // Top 5 properties
+            countryPaths: [
+              '/',
+              `/${formatUrlPath(countryName)}`,
+              `/${formatUrlPath(countryName)}/${formatUrlPath(stateName)}`
             ],
-            remainingPropertyPaths: filteredCompanies.slice(5).map(p => `/property/${p.actualID}`)
+            topPropertyPaths: topCityProperties.slice(0, 5),
+            remainingPropertyPaths: topCityProperties.slice(5)
           }}
         >
           <main className="min-h-screen bg-gray-50">
@@ -89,7 +81,7 @@ export default async function CityPage({ params }: { params: { country: string; 
                 </p>
 
                 <PropertySearch 
-                  initialCompanies={properties}
+                  initialCompanies={cityProperties}
                   country={countryName}
                   state={stateName}
                   city={cityName}
@@ -101,8 +93,8 @@ export default async function CityPage({ params }: { params: { country: string; 
       </Suspense>
     );
   } catch (error) {
-    console.error('Error loading city page:', error);
-    return <div>Error loading city data</div>;
+    console.error('Error in CityPage:', error);
+    throw error;
   }
 }
 
@@ -110,18 +102,8 @@ export const dynamic = 'force-static';
 export const revalidate = 3600; // Revalidate every hour
 
 export async function generateStaticParams() {
-  const companies = await getPropertyCompanies();
-  const paths = new Set();
-  
-  companies.slice(0, 20).forEach(company => {
-    paths.add({
-      country: company.country.toLowerCase().replace(/\s+/g, '-'),
-      state: company.state.toLowerCase().replace(/\s+/g, '-'),
-      city: company.location.toLowerCase().replace(/\s+/g, '-')
-    });
-  });
-  
-  return Array.from(paths);
+  const paths = await getLocationPaths();
+  return paths;
 }
 
 export async function generateMetadata({ params }: { 

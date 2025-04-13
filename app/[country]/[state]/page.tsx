@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPropertyCompanies, PropertyCompany, getStateData } from "@/lib/data";
+import { getPropertyCompanies, getStateData, getLocationData, getPropertyById, PropertyCompany } from "@/lib/data";
 import PropertyList from "@/components/property-list";
 import SearchFilters from "@/components/search-filters";
 import { ChevronRight } from "lucide-react";
@@ -9,27 +9,30 @@ import { Metadata } from "next";
 import { PrefetchWrapper } from "@/components/prefetch-wrapper"
 import { formatUrlPath, groupByNormalizedLocation } from '@/lib/utils'
 import { BreadcrumbNav } from "@/components/breadcrumb-nav";
+import { Record, FieldSet } from "airtable";
+import { getLocationPaths } from "@/lib/data";
 
 export default async function StatePage({ params }: { params: { country: string; state: string } }) {
-  const properties = await getPropertyCompanies();
-  
-  const uniqueStates = groupByNormalizedLocation(properties, 'state');
+  // Get state data and bio in parallel
+  const { records, stateBio } = await getStateData(params.state, params.country);
+
+  const properties = await Promise.all(
+    records.map((record: Record<FieldSet>) => getPropertyById(record.id))
+  ).then(props => props.filter((p): p is PropertyCompany => p !== undefined));
+
+  const uniqueStates = groupByNormalizedLocation(records, 'state');
   const stateData = uniqueStates.find(
     state => state.normalizedName === formatUrlPath(params.state)
   );
 
   const stateName = stateData?.displayName || params.state;
-  const stateProperties = stateData?.properties.filter(
-    company => formatUrlPath(company.country) === formatUrlPath(params.country)
-  ) || [];
+  const stateProperties = stateData?.properties || [];
   const countryName = stateProperties[0]?.country || params.country;
 
   const cities = Array.from(new Set(
     stateProperties
       .map((company) => company.location)
   )).sort();
-
-  const stateBio = await getStateData(stateName);
 
   // Get first 5 properties in this state for prefetching
   const topStateProperties = stateProperties
@@ -103,17 +106,8 @@ export const dynamic = 'force-static';
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  const companies = await getPropertyCompanies();
-  const paths = new Set();
-  
-  companies.forEach(company => {
-    paths.add({
-      country: formatUrlPath(company.country),
-      state: formatUrlPath(company.state)
-    });
-  });
-  
-  return Array.from(paths);
+  const paths = await getLocationPaths();
+  return paths.map(({ country, state }) => ({ country, state }));
 }
 
 export async function generateMetadata({ params }: { 

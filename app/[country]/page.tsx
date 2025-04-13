@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { getPropertyCompanies, getCountryData } from "@/lib/data"
+import { getPropertyCompanies, getCountryData, getLocationData, getPropertyById, PropertyCompany } from "@/lib/data"
 import { ChevronRight } from "lucide-react";
 import PropertySearch from "@/components/property-search";
 import LocationList from '@/components/location-list';
@@ -7,36 +7,47 @@ import { Metadata } from "next"
 import { PrefetchWrapper } from "@/components/prefetch-wrapper"
 import { formatUrlPath, groupByNormalizedLocation } from '@/lib/utils'
 import { BreadcrumbNav } from "@/components/breadcrumb-nav"
+import { Record, FieldSet } from "airtable";
 
 export default async function CountryPage({ params }: { params: { country: string } }) {
-  const properties = await getPropertyCompanies();
+  console.time('Total Page Load');
   
-  // Get bio first using the raw param
-  const countryBio = await getCountryData(params.country);
-  
-  const uniqueCountries = groupByNormalizedLocation(properties, 'country');
+  // Measure data fetching
+  console.time('Data Fetching');
+  const [{ records, countryBio }] = await Promise.all([
+    // getLocationData(params.country),
+    getCountryData(params.country)
+  ]);
+  console.timeEnd('Data Fetching');
+
+  // Measure data processing
+  console.time('Data Processing');
+  const uniqueCountries = groupByNormalizedLocation(records as PropertyCompany[], 'country');
   const countryData = uniqueCountries.find(
     country => country.normalizedName === formatUrlPath(params.country)
   );
+  console.timeEnd('Data Processing');
 
+  // Measure state extraction
+  console.time('State Processing');
   const countryName = countryData?.displayName || params.country;
   const countryProperties = countryData?.properties || [];
-
   const states = Array.from(new Set(
     countryProperties.map(company => company.state)
   )).sort();
+  console.timeEnd('State Processing');
 
-  // Get first 5 properties in this country for prefetching
+  // Measure path preparation
+  console.time('Path Preparation');
   const topProperties = countryProperties
     .slice(0, 5)
     .map(property => `/property/${property.actualID}`);
 
-  // Create state paths for prefetching
   const statePaths = states
-  .slice(0, 10)
-  .map(state => 
-    `/${formatUrlPath(countryName)}/${formatUrlPath(state)}`
-  );
+    .map(state => `/${formatUrlPath(countryName)}/${formatUrlPath(state)}`);
+  console.timeEnd('Path Preparation');
+
+  console.timeEnd('Total Page Load');
 
   return (
     <PrefetchWrapper 
@@ -52,6 +63,7 @@ export default async function CountryPage({ params }: { params: { country: strin
         ]
       }}
     >
+      
       <main className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-5xl mx-auto">
@@ -76,7 +88,6 @@ export default async function CountryPage({ params }: { params: { country: strin
               {countryBio || `Find and compare property management companies in ${countryName}. Browse through our comprehensive directory 
                 to discover property managers organized by location, size, and services offered.`}
             </p>
-
             <LocationList 
               locations={states}
               basePath={`/${params.country}`}
@@ -84,7 +95,7 @@ export default async function CountryPage({ params }: { params: { country: strin
             />
 
             <PropertySearch 
-              initialCompanies={properties}
+              initialCompanies={countryProperties}
               country={countryName}
             />
           </div>

@@ -5,6 +5,7 @@ import { cache } from "react";
 import "react-virtualized/styles.css";
 import { Record, FieldSet } from "airtable";
 import summaries from "../scripts/summaries.json";
+import { formatUrlPath } from "./utils";
 
 export interface PropertyCompany {
     actualID: string;
@@ -208,28 +209,132 @@ export const getPropertyCompanies = cache(
 );
 
 // Add individual property getter with caching
-export const getPropertyById = cache(
-    async (id: string): Promise<PropertyCompany | undefined> => {
-        try {
-            // Query directly using the URL-friendly ID
-            const records = await fetchWithRetry(() =>
-                base("Marketplace")
-                    .select({
-                        filterByFormula: `RECORD_ID() = '${id}'`,
-                        maxRecords: 1
-                    })
-                    .all()
-            );
+export const getPropertyById = cache(async (id: string): Promise<PropertyCompany | undefined> => {
+    try {
+        // Fetch single record directly instead of filtering
+        const records = await fetchWithRetry(() =>
+            base("Marketplace")
+                .select({
+                    filterByFormula: `RECORD_ID() = '${id}'`,
+                    maxRecords: 1
+                })
+                .all()
+        );
 
-            if (!records || records.length === 0) return undefined;
-            const record = records[0];
+        if (!records || records.length === 0) return undefined;
+        const record = records[0];  // Get first record from array
 
-            // Get the linked record IDs
+        // Get the linked record IDs
+        const countryId = (record.get("HQ Country") as string[])?.[0];
+        const stateId = (record.get("HQ State") as string[])?.[0];
+        const cityId = (record.get("HQ City") as string[])?.[0];
+
+        // Parallel fetch location names only if needed
+        const [countryName, stateName, cityName] = await Promise.all([
+            countryId ? fetchLocationName("Countries", countryId, "Country Name") : Promise.resolve("Unknown Country"),
+            stateId ? fetchLocationName("States", stateId, "State Name") : Promise.resolve("Unknown State"),
+            cityId ? fetchLocationName("Cities", cityId, "City Name") : Promise.resolve("Unknown City")
+        ]);
+
+        const name = record.get("Company Name")?.toString();
+        if (!name) return undefined;
+
+        // Get feature summary
+        const featureSummary = summaries.find(item => item.id === record.id)?.summary;
+
+        // Return formatted property data
+        return {
+            actualID: record.id,
+            id: name.toLowerCase().replace(/\s+/g, "-"),
+            name,
+            logo: record.get("Company Logo")?.toString() || "/placeholder.svg",
+            website: record.get("Company Website")?.toString() || "#",
+            country: countryName,
+            state: stateName,
+            location: cityName,
+            introBlog: record.get("Intro Blog")?.toString(),
+            blog: record.get("Blog")?.toString(),
+            oneLiner: record.get("One liner")?.toString(),
+            facebook: record.get("Facebook")?.toString(),
+            linkedin: record.get("LinkedIn")?.toString(),
+            twitter: record.get("X Link")?.toString(),
+            employees: Number(record.get("Employees")) || undefined,
+            yearFounded: Number(record.get("Year Founded")) || undefined,
+            description: record.get("Intro Blog")?.toString(),
+            images: [
+                record.get("Image 1")?.toString() || "",
+                record.get("Image 2")?.toString() || "",
+                record.get("Image 3")?.toString() || "",
+                record.get("Image 4")?.toString() || "",
+                record.get("Image 5")?.toString() || "",
+            ].filter(img => img && (img.startsWith("http") || img.startsWith("/"))),
+            airbnbUrl: record.get("Airbnb Host URL")?.toString(),
+            propertyCount: Number(record.get("A.Listings")) || undefined,
+            totalReviews: Number(record.get("A.Reviews")) || undefined,
+            rating: Number(record.get("A.Rating")) || undefined,
+            otherStates: record.get("Other States")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+            otherCities: record.get("Other Cities")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
+            isVerified: record.get("Is Verified?") === true,
+            tags: record.get("Type")?.toString(),
+            socialMedia: {
+                facebook: record.get("Facebook")?.toString(),
+                linkedin: record.get("LinkedIn")?.toString(),
+                twitter: record.get("X Link")?.toString(),
+            },
+            keyFeatures: featureSummary,
+        };
+    } catch (error) {
+        console.error("Error fetching property:", error);
+        return undefined;
+    }
+});
+
+// Add this function before getPropertyWithRelated
+export const getRelatedProperties = cache(async (id: string): Promise<PropertyCompany[]> => {
+  try {
+    // First get the main property's state and city directly
+    const mainRecord = await fetchWithRetry(() =>
+        base("Marketplace")
+            .select({
+                filterByFormula: `RECORD_ID() = '${id}'`,
+                maxRecords: 1
+            })
+            .all()
+    );
+
+    if (!mainRecord || mainRecord.length === 0) return [];
+
+    const stateId = (mainRecord[0].get("HQ State") as string[])?.[0];
+    const cityId = (mainRecord[0].get("HQ City") as string[])?.[0];
+
+    if (!stateId && !cityId) return [];
+
+    // Build the filter formula for related properties
+    const filterFormula = `AND(
+        RECORD_ID() != '${id}',
+        OR(
+            {HQ State} = '${stateId}',
+            {HQ City} = '${cityId}'
+        )
+    )`;
+
+    // Fetch related records
+    const relatedRecords = await fetchWithRetry(() =>
+        base("Marketplace")
+            .select({
+                filterByFormula: filterFormula,
+                maxRecords: 5
+            })
+            .all()
+    );
+
+    // Convert records to PropertyCompany objects
+    const relatedProperties = await Promise.all(
+        relatedRecords.map(async (record: Record<FieldSet>) => {
             const countryId = (record.get("HQ Country") as string[])?.[0];
             const stateId = (record.get("HQ State") as string[])?.[0];
             const cityId = (record.get("HQ City") as string[])?.[0];
 
-            // Fetch location names
             const [countryName, stateName, cityName] = await Promise.all([
                 countryId
                     ? fetchLocationName("Countries", countryId, "Country Name")
@@ -243,9 +348,8 @@ export const getPropertyById = cache(
             ]);
 
             const name = record.get("Company Name")?.toString();
-            if (!name) return undefined;
+            if (!name) return null;
 
-            // Get feature summary
             const featureSummary = summaries.find(
                 (item) => item.id === record.id
             )?.summary;
@@ -290,223 +394,372 @@ export const getPropertyById = cache(
                 },
                 keyFeatures: featureSummary,
             };
-        } catch (error) {
-            console.error("Error fetching property by ID:", error);
-            return undefined;
-        }
-    }
-);
+        })
+    );
 
-// Add this function before getPropertyWithRelated
-export const getRelatedProperties = cache(
-    async (id: string): Promise<PropertyCompany[]> => {
-        try {
-            // First get the main property's state and city directly
-            const mainRecord = await fetchWithRetry(() =>
-                base("Marketplace")
-                    .select({
-                        filterByFormula: `RECORD_ID() = '${id}'`,
-                        maxRecords: 1
-                    })
-                    .all()
-            );
-
-            if (!mainRecord || mainRecord.length === 0) return [];
-
-            const stateId = (mainRecord[0].get("HQ State") as string[])?.[0];
-            const cityId = (mainRecord[0].get("HQ City") as string[])?.[0];
-
-            if (!stateId && !cityId) return [];
-
-            // Build the filter formula for related properties
-            const filterFormula = `AND(
-                RECORD_ID() != '${id}',
-                OR(
-                    {HQ State} = '${stateId}',
-                    {HQ City} = '${cityId}'
-                )
-            )`;
-
-            // Fetch related records
-            const relatedRecords = await fetchWithRetry(() =>
-                base("Marketplace")
-                    .select({
-                        filterByFormula: filterFormula,
-                        maxRecords: 5
-                    })
-                    .all()
-            );
-
-            // Convert records to PropertyCompany objects
-            const relatedProperties = await Promise.all(
-                relatedRecords.map(async (record: Record<FieldSet>) => {
-                    const countryId = (record.get("HQ Country") as string[])?.[0];
-                    const stateId = (record.get("HQ State") as string[])?.[0];
-                    const cityId = (record.get("HQ City") as string[])?.[0];
-
-                    const [countryName, stateName, cityName] = await Promise.all([
-                        countryId
-                            ? fetchLocationName("Countries", countryId, "Country Name")
-                            : Promise.resolve("Unknown Country"),
-                        stateId
-                            ? fetchLocationName("States", stateId, "State Name")
-                            : Promise.resolve("Unknown State"),
-                        cityId
-                            ? fetchLocationName("Cities", cityId, "City Name")
-                            : Promise.resolve("Unknown City"),
-                    ]);
-
-                    const name = record.get("Company Name")?.toString();
-                    if (!name) return null;
-
-                    const featureSummary = summaries.find(
-                        (item) => item.id === record.id
-                    )?.summary;
-
-                    return {
-                        actualID: record.id,
-                        id: name.toLowerCase().replace(/\s+/g, "-"),
-                        name,
-                        logo: record.get("Company Logo")?.toString() || "/placeholder.svg",
-                        website: record.get("Company Website")?.toString() || "#",
-                        country: countryName,
-                        state: stateName,
-                        location: cityName,
-                        introBlog: record.get("Intro Blog")?.toString(),
-                        blog: record.get("Blog")?.toString(),
-                        oneLiner: record.get("One liner")?.toString(),
-                        facebook: record.get("Facebook")?.toString(),
-                        linkedin: record.get("LinkedIn")?.toString(),
-                        twitter: record.get("X Link")?.toString(),
-                        employees: Number(record.get("Employees")) || undefined,
-                        yearFounded: Number(record.get("Year Founded")) || undefined,
-                        description: record.get("Intro Blog")?.toString(),
-                        images: [
-                            record.get("Image 1")?.toString() || "",
-                            record.get("Image 2")?.toString() || "",
-                            record.get("Image 3")?.toString() || "",
-                            record.get("Image 4")?.toString() || "",
-                            record.get("Image 5")?.toString() || "",
-                        ].filter(img => img && (img.startsWith("http") || img.startsWith("/"))),
-                        airbnbUrl: record.get("Airbnb Host URL")?.toString(),
-                        propertyCount: Number(record.get("A.Listings")) || undefined,
-                        totalReviews: Number(record.get("A.Reviews")) || undefined,
-                        rating: Number(record.get("A.Rating")) || undefined,
-                        otherStates: record.get("Other States")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
-                        otherCities: record.get("Other Cities")?.toString().split(",").map((s: string) => s.trim()).filter(Boolean),
-                        isVerified: record.get("Is Verified?") === true,
-                        tags: record.get("Type")?.toString(),
-                        socialMedia: {
-                            facebook: record.get("Facebook")?.toString(),
-                            linkedin: record.get("LinkedIn")?.toString(),
-                            twitter: record.get("X Link")?.toString(),
-                        },
-                        keyFeatures: featureSummary,
-                    };
-                })
-            );
-
-            return relatedProperties.filter((p): p is PropertyCompany => p !== null);
-        } catch (error) {
-            console.error("Error fetching related properties:", error);
-            return [];
-        }
-    }
-);
+    return relatedProperties.filter((p): p is PropertyCompany => p !== null);
+} catch (error) {
+    console.error("Error fetching related properties:", error);
+    return [];
+}
+});
 
 // Add parallel data fetching
-export async function getPropertyWithRelated(id: string) {
+export const getPropertyWithRelated = cache(async (id: string) => {
     const [property, relatedProperties] = await Promise.all([
         getPropertyById(id),
         getRelatedProperties(id),
     ]);
 
     return { property, relatedProperties };
+});
+
+// Add a more comprehensive cache for all location data
+const locationCache = new Map<string, {
+  id: string;
+  name: string;
+  table: string;
+}[]>();
+
+// Prefetch and cache all location data at once
+async function prefetchLocations(table: string) {
+  if (locationCache.has(table)) return;
+  
+  // Fix the field name construction
+  const fieldName = table === 'Countries' ? 'Country Name' :
+                   table === 'States' ? 'State Name' :
+                   'City Name';
+  
+  const records = await fetchWithRetry(() => 
+    base(table)
+      .select({
+        fields: [fieldName]
+      })
+      .all()
+  );
+  
+  locationCache.set(table, records.map((record: Record<FieldSet>) => ({
+    id: record.id,
+    name: record.get(fieldName)?.toString() || `Unknown ${table.slice(0, -1)}`,
+    table
+  })));
 }
 
-// Add these functions to get location data
-export async function getCountryData(countryName: string) {
-    try {
-        const cleanCountryName = decodeURIComponent(countryName)
-            .replace(/-/g, " ") // Replace hyphens with spaces
-            .replace(/(^|\s)\w/g, (l) => l.toUpperCase()); // Capitalize first letter of each word
+// Add this helper function to check if a location exists
+async function checkLocationExists(name: string, type: 'Countries' | 'States' | 'Cities'): Promise<string | null> {
+  try {
+    // Get the correct field name based on type
+    const fieldName = type === 'Countries' ? 'Country Name' :
+                     type === 'States' ? 'State Name' :
+                     'City Name';
 
-        // Encode the country name for the API request
-        const encodedCountryName = encodeURIComponent(cleanCountryName);
-
-        const records = await fetchWithRetry(() =>
-            base("Countries")
-                .select({
-                    filterByFormula: `{Country Name} = '${encodedCountryName}'`,
-                })
-                .all()
-        );
-
-        // Get the first record that has a Country Bio
-        const bioRecord = records.find(
-            (record: Record<FieldSet>) => record.fields["Country Bio"]
-        );
-        return bioRecord?.fields["Country Bio"]?.toString() || null;
-    } catch (error) {
-        console.error("Error fetching country data:", error);
-        return null; // Return null instead of throwing error
-    }
+    const records = await fetchWithRetry(() =>
+      base(type)
+        .select({
+          filterByFormula: `{${fieldName}} = '${name}'`,
+          fields: [fieldName]
+        })
+        .all()
+    );
+    
+    return records[0]?.get(fieldName)?.toString() || null;
+  } catch (error) {
+    console.error(`Error checking ${type} name:`, error);
+    return null;
+  }
 }
 
-export async function getStateData(stateName: string) {
-    try {
-        const cleanStateName = decodeURIComponent(stateName)
-            .replace(/-/g, " ")
-            .replace(/(^|\s)\w/g, (l) => l.toUpperCase());
+// Add a list of special location names that should preserve dashes
+const PRESERVE_DASHES = new Set([
+  'emilia-romagna',
+]);
 
-        const encodedStateName = encodeURIComponent(cleanStateName);
+async function normalizeLocationName(name: string, type: 'Countries' | 'States' | 'Cities'): Promise<string> {
+  const decoded = decodeURIComponent(name).toLowerCase();
+  
+  // Check if this is a special case that should preserve dashes
+  if (PRESERVE_DASHES.has(decoded)) {
+    return decoded
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('-');
+  }
 
-        const records = await fetchWithRetry(() =>
-            base("States")
-                .select({
-                    filterByFormula: `{State Name} = '${encodedStateName}'`,
-                })
-                .all()
-        );
+  // Handle apostrophes first
+  const apostropheFixed = decoded
+    .replace(/['']/g, "'") // Normalize different types of apostrophes
+    .replace(/-/g, ' '); // Replace dashes with spaces
+    
 
-        const bioRecord = records.find(
-            (record: Record<FieldSet>) => record.fields["State Bio"]
-        );
-        return bioRecord?.fields["State Bio"]?.toString() || null;
-    } catch (error) {
-        console.error("Error fetching state data:", error);
-        return null;
-    }
+  // Try exact match first
+  const exactMatch = await checkLocationExists(apostropheFixed, type);
+  if (exactMatch) return exactMatch;
+
+  // If no match, format consistently
+  return apostropheFixed
+    .split(' ')
+    .map(word => {
+      if (word.includes("'")) {
+        // Special handling for words with apostrophes (e.g., d'Alene, O'Brien)
+        return word.split("'")
+          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+          .join("'");
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
 }
 
-export async function getCityData(cityName: string) {
-    try {
-        const cleanCityName = decodeURIComponent(cityName)
-            .replace(/-/g, " ") // Replace hyphens with spaces
-            .replace(/(^|\s)\w/g, (l) => l.toUpperCase()); // Capitalize first letter of each word
+// Add a cache for linked records
+const linkedRecordCache = new Map<string, Record<FieldSet>>();
 
-        const records = await base("Cities")
-            .select({
-                filterByFormula: `{City Name} = '${cleanCityName}'`,
-            })
-            .all();
+// Optimize property transformation with batch fetching
+async function transformProperties(records: Record<FieldSet>[]) {
+  console.time('Property Transform Total');
+  
+  // 1. First collect all unique location IDs
+  console.time('Collect IDs');
+  const locationIds = {
+    Countries: new Set<string>(),
+    States: new Set<string>(),
+    Cities: new Set<string>()
+  };
 
-        // Find the record that has a City Bio field
-        const bioRecord = records.find(
-            (record: Record<FieldSet>) => record.fields["City Bio"]
-        );
-        // console.log('Bio record found:', !!bioRecord);
-        // console.log('Bio content:', bioRecord?.fields['City Bio']?.toString());
+  records.forEach(record => {
+    const countryId = (record.get('HQ Country') as string[])?.[0];
+    const stateId = (record.get('HQ State') as string[])?.[0];
+    const cityId = (record.get('HQ City') as string[])?.[0];
+    
+    if (countryId) locationIds.Countries.add(countryId);
+    if (stateId) locationIds.States.add(stateId);
+    if (cityId) locationIds.Cities.add(cityId);
+  });
+  console.timeEnd('Collect IDs');
 
-        const result = bioRecord?.fields["City Bio"]?.toString();
-        // console.log('Returning:', result);
+  // 2. Batch fetch all locations in parallel
+  console.time('Batch Location Fetch');
+  await Promise.all([
+    prefetchLocations('Countries'),
+    prefetchLocations('States'),
+    prefetchLocations('Cities')
+  ]);
+  console.timeEnd('Batch Location Fetch');
 
-        return result;
-    } catch (error) {
-        console.error("Error in getCityData:", error);
-        return null;
-    }
+  // 3. Transform records using cached data
+  console.time('Transform Records');
+  const properties = records.map(record => {
+    const countryId = (record.get('HQ Country') as string[])?.[0];
+    const stateId = (record.get('HQ State') as string[])?.[0];
+    const cityId = (record.get('HQ City') as string[])?.[0];
+
+    // Use cached location data
+    const countryName = locationCache.get('Countries')?.find(c => c.id === countryId)?.name || 'Unknown Country';
+    const stateName = locationCache.get('States')?.find(s => s.id === stateId)?.name || 'Unknown State';
+    const cityName = locationCache.get('Cities')?.find(c => c.id === cityId)?.name || 'Unknown City';
+
+    return {
+      actualID: record.id,
+      id: record.get('Company Name')?.toString()?.toLowerCase().replace(/\s+/g, '-') || '',
+      name: record.get('Company Name')?.toString() || '',
+      logo: record.get('Company Logo')?.toString() || '/placeholder.svg',
+      website: record.get('Company Website')?.toString() || '#',
+      country: countryName,
+      state: stateName,
+      location: cityName,
+      description: record.get('Intro Blog')?.toString(),
+      oneLiner: record.get('One liner')?.toString(),
+      propertyCount: Number(record.get('A.Listings')) || undefined,
+      rating: Number(record.get('A.Rating')) || undefined,
+      isVerified: record.get('Is Verified?') === true
+    };
+  });
+  console.timeEnd('Transform Records');
+
+  console.timeEnd('Property Transform Total');
+  return properties;
 }
+
+// Update the data fetching functions to use the new transformer
+export const getCountryData = cache(async (country: string) => {
+  console.time('getCountryData Total');
+  
+  const formattedCountry = await normalizeLocationName(country, 'Countries');
+
+  const [countryRecords, propertyRecords] = await Promise.all([
+    fetchWithRetry(() =>
+      base('Countries')
+        .select({
+          filterByFormula: `{Country Name} = '${formattedCountry}'`,
+          fields: ['Country Bio']
+        })
+        .all()
+    ),
+    fetchWithRetry(() =>
+      base('Marketplace')
+        .select({
+          filterByFormula: `{HQ Country} = '${formattedCountry}'`,
+          fields: [
+            'Company Name', 'Company Logo', 'Company Website',
+            'HQ Country', 'HQ State', 'HQ City',
+            'Intro Blog', 'One liner', 'A.Listings',
+            'A.Rating', 'Is Verified?'
+          ]
+        })
+        .all()
+    )
+  ]);
+
+  const properties = await transformProperties(propertyRecords);
+
+  console.timeEnd('getCountryData Total');
+  return {
+    records: properties,
+    countryBio: countryRecords[0]?.get('Country Bio')?.toString()
+  };
+});
+
+export const getStateData = cache(async (state: string, country: string) => {
+  console.time('getStateData Total');
+  
+  const formattedState = await normalizeLocationName(state, 'States');
+  const formattedCountry = await normalizeLocationName(country, 'Countries');
+
+  // Prefetch all location data in parallel if not already cached
+  console.time('Location Prefetch');
+  await Promise.all([
+    prefetchLocations('Countries'),
+    prefetchLocations('States'),
+    prefetchLocations('Cities')
+  ]);
+  console.timeEnd('Location Prefetch');
+
+  console.time('Data Fetching');
+  const [stateRecords, propertyRecords] = await Promise.all([
+    fetchWithRetry(() =>
+      base('States')
+        .select({
+          filterByFormula: `{State Name} = '${formattedState}'`,
+          fields: ['State Bio']
+        })
+        .all()
+    ),
+    fetchWithRetry(() =>
+      base('Marketplace')
+        .select({
+          filterByFormula: `AND({HQ State} = '${formattedState}', {HQ Country} = '${formattedCountry}')`
+        })
+        .all()
+    )
+  ]);
+  console.timeEnd('Data Fetching');
+
+  console.time('Property Transformation');
+  const properties = propertyRecords.map((record: Record<FieldSet>) => {
+    const countryId = (record.get('HQ Country') as string[])?.[0];
+    const stateId = (record.get('HQ State') as string[])?.[0];
+    const cityId = (record.get('HQ City') as string[])?.[0];
+
+    // Use cached location data
+    const countryName = locationCache.get('Countries')?.find(c => c.id === countryId)?.name || 'Unknown Country';
+    const stateName = locationCache.get('States')?.find(s => s.id === stateId)?.name || 'Unknown State';
+    const cityName = locationCache.get('Cities')?.find(c => c.id === cityId)?.name || 'Unknown City';
+    
+    return {
+      actualID: record.id,
+      id: record.get('Company Name')?.toString()?.toLowerCase().replace(/\s+/g, '-') || '',
+      name: record.get('Company Name')?.toString() || '',
+      logo: record.get('Company Logo')?.toString() || '/placeholder.svg',
+      website: record.get('Company Website')?.toString() || '#',
+      country: countryName,
+      state: stateName,
+      location: cityName,
+      description: record.get('Intro Blog')?.toString(),
+      oneLiner: record.get('One liner')?.toString(),
+      propertyCount: Number(record.get('A.Listings')) || undefined,
+      rating: Number(record.get('A.Rating')) || undefined,
+      isVerified: record.get('Is Verified?') === true
+    };
+  });
+  console.timeEnd('Property Transformation');
+
+  console.timeEnd('getStateData Total');
+  return {
+    records: properties,
+    stateBio: stateRecords[0]?.get('State Bio')?.toString()
+  };
+});
+
+export const getCityData = cache(async (city: string, state: string, country: string) => {
+  console.time('getCityData Total');
+  
+  const formattedCity = await normalizeLocationName(city, 'Cities');
+  const formattedState = await normalizeLocationName(state, 'States');
+  const formattedCountry = await normalizeLocationName(country, 'Countries');
+
+  // Use existing location cache
+  console.time('Location Prefetch');
+  await Promise.all([
+    prefetchLocations('Countries'),
+    prefetchLocations('States'),
+    prefetchLocations('Cities')
+  ]);
+  console.timeEnd('Location Prefetch');
+
+  console.time('Data Fetching');
+  const [cityRecords, propertyRecords] = await Promise.all([
+    fetchWithRetry(() =>
+      base('Cities')
+        .select({
+          filterByFormula: `{City Name} = '${formattedCity}'`,
+          fields: ['City Bio']
+        })
+        .all()
+    ),
+    fetchWithRetry(() =>
+      base('Marketplace')
+        .select({
+          filterByFormula: `AND({HQ City} = '${formattedCity}', {HQ State} = '${formattedState}', {HQ Country} = '${formattedCountry}')`
+        })
+        .all()
+    )
+  ]);
+  console.timeEnd('Data Fetching');
+
+  console.time('Property Transformation');
+  const properties = propertyRecords.map((record: Record<FieldSet>) => {
+    const countryId = (record.get('HQ Country') as string[])?.[0];
+    const stateId = (record.get('HQ State') as string[])?.[0];
+    const cityId = (record.get('HQ City') as string[])?.[0];
+
+    // Use cached location data
+    const countryName = locationCache.get('Countries')?.find(c => c.id === countryId)?.name || 'Unknown Country';
+    const stateName = locationCache.get('States')?.find(s => s.id === stateId)?.name || 'Unknown State';
+    const cityName = locationCache.get('Cities')?.find(c => c.id === cityId)?.name || 'Unknown City';
+    
+    return {
+      actualID: record.id,
+      id: record.get('Company Name')?.toString()?.toLowerCase().replace(/\s+/g, '-') || '',
+      name: record.get('Company Name')?.toString() || '',
+      logo: record.get('Company Logo')?.toString() || '/placeholder.svg',
+      website: record.get('Company Website')?.toString() || '#',
+      country: countryName,
+      state: stateName,
+      location: cityName,
+      description: record.get('Intro Blog')?.toString(),
+      oneLiner: record.get('One liner')?.toString(),
+      propertyCount: Number(record.get('A.Listings')) || undefined,
+      rating: Number(record.get('A.Rating')) || undefined,
+      isVerified: record.get('Is Verified?') === true
+    };
+  });
+  console.timeEnd('Property Transformation');
+
+  console.timeEnd('getCityData Total');
+  return {
+    records: properties,
+    cityBio: cityRecords[0]?.get('City Bio')?.toString()
+  };
+});
 
 // Function to fetch a single property company record directly from Airtable by actualID
 export const fetchPropertyCompanyById = cache(
@@ -611,22 +864,113 @@ export const fetchPropertyCompanyById = cache(
     }
 );
 
-// Helper function to fetch a single location name by ID
+// Add location name cache
+const locationNameCache = new Map<string, string>();
+
 async function fetchLocationName(
     tableName: string,
     recordId: string,
     fieldName: string
 ): Promise<string> {
+    const cacheKey = `${tableName}-${recordId}`;
+    if (locationNameCache.has(cacheKey)) {
+        return locationNameCache.get(cacheKey)!;
+    }
+
     try {
-        const record = await fetchWithRetry(() =>
-            base(tableName).find(recordId)
-        );
-        return (
-            record.get(fieldName)?.toString() ||
-            `Unknown ${tableName.slice(0, -1)}`
-        );
+        const record = await fetchWithRetry(() => base(tableName).find(recordId));
+        const name = record.get(fieldName)?.toString() || `Unknown ${tableName.slice(0, -1)}`;
+        locationNameCache.set(cacheKey, name);
+        return name;
     } catch (error) {
         console.error(`Error fetching ${tableName} record:`, error);
         return `Unknown ${tableName.slice(0, -1)}`;
     }
+}
+
+// Add these optimized functions
+export const getLocationData = cache(async (country?: string, state?: string, city?: string) => {
+  const formatLocation = (name: string) => {
+    // First decode the URL-safe string
+    const decoded = decodeURIComponent(name);
+    console.log('decoded:', decoded);
+    
+    // Replace dashes with spaces and capitalize each word
+    return decoded
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Format and log each step for debugging
+  const formattedCountry = country ? formatLocation(country) : '';
+  const formattedState = state ? formatLocation(state) : '';
+  const formattedCity = city ? formatLocation(city) : '';
+  
+  console.log('formattedCountry', formattedCountry);
+  console.log('formattedState', formattedState);
+  console.log('formattedCity', formattedCity);
+
+  const formula = city 
+    ? `AND({HQ Country} = '${formattedCountry}', {HQ State} = '${formattedState}', {HQ City} = '${formattedCity}')`
+    : state
+    ? `AND({HQ Country} = '${formattedCountry}', {HQ State} = '${formattedState}')`
+    : `{HQ Country} = '${formattedCountry}'`;
+
+  const records = await fetchWithRetry(() => 
+    base('Marketplace')
+      .select({
+        filterByFormula: formula
+      })
+      .all()
+  );
+
+  console.log('Records found:', records.length);
+  return records;
+});
+
+// Add this helper function for static paths
+export async function getLocationPaths() {
+  try {
+    const records = await fetchWithRetry(() =>
+      base('Marketplace')
+        .select({
+          fields: ['HQ Country', 'HQ State', 'HQ City'],
+          maxRecords: 100 // Limit to first 100 records for static generation
+        })
+        .all()
+    );
+
+    const paths = new Set<string>();
+    
+    for (const record of records) {
+      const countryId = (record.get('HQ Country') as string[])?.[0];
+      const stateId = (record.get('HQ State') as string[])?.[0];
+      const cityId = (record.get('HQ City') as string[])?.[0];
+
+      if (!countryId || !stateId || !cityId) continue;
+
+      // Get location names from cache or fetch them
+      const [country, state, city] = await Promise.all([
+        fetchLocationName('Countries', countryId, 'Country Name'),
+        fetchLocationName('States', stateId, 'State Name'),
+        fetchLocationName('Cities', cityId, 'City Name')
+      ]);
+
+      // Create URL-safe path
+      const path = {
+        country: formatUrlPath(country),
+        state: formatUrlPath(state),
+        city: formatUrlPath(city)
+      };
+
+      paths.add(JSON.stringify(path));
+    }
+
+    return Array.from(paths).map(p => JSON.parse(p));
+  } catch (error) {
+    console.error('Error generating static paths:', error);
+    return [];
+  }
 }

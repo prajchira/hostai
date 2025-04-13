@@ -90,7 +90,7 @@ export default function SearchFilters({
   }
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-4">
         <p className="mini-text text-mid-gray">
           Showing {filteredCount.toLocaleString()} {filteredCount === 1 ? 'company' : 'companies'} in {locationText}

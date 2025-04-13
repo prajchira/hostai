@@ -253,12 +253,12 @@ export default function PropertyList({ searchQuery, country, state, city, filter
   
 
   return (
-    <div className="relative" style={{ height: `${Math.max(totalHeight, 400)}px` }}>
+    <div className="relative" style={{ height: `${Math.max(totalHeight, 300)}px` }}>
       <AutoSizer>
         {({ width }) => (
           <List
             ref={listRef}
-            height={Math.max(totalHeight, 400)}
+            height={Math.max(totalHeight, 300)}
             width={width}
             itemCount={displayedProperties.length}
             itemSize={200}
