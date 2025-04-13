@@ -107,6 +107,8 @@ export async function generateStaticParams() {
   
   companies.forEach(company => {
     paths.add({
+      country: formatUrlPath(company.country),
+      state: formatUrlPath(company.state),
       city: formatUrlPath(company.location)
     });
   });
