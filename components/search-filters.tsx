@@ -1,30 +1,33 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, SlidersHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
+import { PropertyCompany } from "@/lib/data"
 
 interface SearchFiltersProps {
-  onSearchChange: (query: string) => void;
   onFiltersChange: (filters: {
+    searchQuery: string;
     country: string;
     state: string;
     ranges: FilterRanges;
   }) => void;
   onSortChange: (sort: string) => void;
+  onApplyFilters: () => Promise<void>;
   filteredCount: number;
+  totalResults: number;
   country?: string;
   state?: string;
   city?: string;
-  totalResults: number;
-  companies: any[]; // Assuming a simple structure for companies
+  companies: PropertyCompany[];
+  isLoading?: boolean;
 }
 
 interface FilterRanges {
@@ -33,25 +36,29 @@ interface FilterRanges {
   totalReviews: [number, number];
 }
 
+const initialRanges = {
+  stars: [0, 5] as [number, number],
+  propertyCount: [0, 2000] as [number, number],
+  totalReviews: [0, 10001] as [number, number]
+};
+
 export default function SearchFilters({ 
-  onSearchChange, 
   onFiltersChange,
   onSortChange,
+  onApplyFilters,
   filteredCount,
+  totalResults,
   country, 
   state, 
   city,
-  totalResults,
-  companies 
+  companies,
+  isLoading
 }: SearchFiltersProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCountry, setSelectedCountry] = useState<string>("")
   const [selectedState, setSelectedState] = useState<string>("")
-  const [ranges, setRanges] = useState<FilterRanges>({
-    stars: [0, 5],
-    propertyCount: [0, 2000],
-    totalReviews: [0, 10001]
-  })
+  const [ranges, setRanges] = useState<FilterRanges>(initialRanges)
+  const [isOpen, setIsOpen] = useState(false)
 
   // Example state mappings - you would replace these with your actual data
   const statesByCountry: Record<string, string[]> = {
@@ -60,16 +67,14 @@ export default function SearchFilters({
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newQuery = e.target.value
-    setSearchQuery(newQuery)
-    onSearchChange(newQuery)
+    setSearchQuery(e.target.value);
   }
 
   const handleRangeChange = (key: keyof FilterRanges, value: number[]) => {
     setRanges(prev => ({
       ...prev,
       [key]: value as [number, number]
-    }))
+    }));
   }
 
   // Build location text
@@ -81,12 +86,22 @@ export default function SearchFilters({
     ? country
     : 'all locations';
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = async () => {
     onFiltersChange({
+      searchQuery,
       country: selectedCountry,
       state: selectedState,
-      ranges: ranges
-    })
+      ranges
+    });
+    await onApplyFilters();
+    setIsOpen(false); // Close sheet after applying
+  }
+
+  const handleReset = () => {
+    setSearchQuery("");
+    setSelectedCountry("");
+    setSelectedState("");
+    setRanges(initialRanges);
   }
 
   return (
@@ -95,20 +110,18 @@ export default function SearchFilters({
         <p className="mini-text text-mid-gray">
           Showing {filteredCount.toLocaleString()} {filteredCount === 1 ? 'company' : 'companies'} in {locationText}
         </p>
-        <div className="flex items-center gap-2">
-          <Select defaultValue="relevance" onValueChange={onSortChange}>
-            <SelectTrigger className="w-[180px] bg-white">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relevance">Relevance</SelectItem>
-              <SelectItem value="rating">Rating (High to Low)</SelectItem>
-              <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-              <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-              <SelectItem value="properties">Property Count</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Select defaultValue="relevance" onValueChange={onSortChange}>
+          <SelectTrigger className="w-[180px] bg-white">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="relevance">Relevance</SelectItem>
+            <SelectItem value="rating">Rating (High to Low)</SelectItem>
+            <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+            <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+            <SelectItem value="properties">Property Count</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="relative">
@@ -118,10 +131,11 @@ export default function SearchFilters({
           className="w-full pl-10 py-6 text-[19px] font-[300] bg-white focus-visible:ring-[#C65F39] focus-visible:ring-1 focus-visible:ring-offset-0"
           value={searchQuery}
           onChange={handleSearchChange}
+          disabled={isLoading}
         />
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
 
-        <Sheet>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button 
               variant="outline" 
@@ -135,78 +149,50 @@ export default function SearchFilters({
               Filters
             </Button>
           </SheetTrigger>
-          <SheetContent className="overflow-y-auto">
+
+          <SheetContent className="overflow-y-auto rounded-l-2xl">
             <SheetHeader>
-              <SheetTitle className="large-heading">Filter Properties</SheetTitle>
-              <SheetDescription className="description-text text-gray-600">
-                Narrow down your search with these filters
-              </SheetDescription>
+              <SheetTitle>Filter Properties</SheetTitle>
             </SheetHeader>
             
-            <div className="grid gap-6 py-6">
+            <div className="space-y-6 py-4">
               <div>
-                <Label className="body-text text-gray-700 mb-2">
-                  Stars ({ranges.stars[0]} - {ranges.stars[1]})
-                </Label>
+                <Label>Stars ({ranges.stars[0]} - {ranges.stars[1]})</Label>
                 <Slider
-                  defaultValue={[0, 5]}
+                  defaultValue={initialRanges.stars}
+                  value={ranges.stars}
                   max={5}
                   step={0.1}
-                  value={ranges.stars}
                   onValueChange={(value) => handleRangeChange('stars', value)}
-                  className="mt-4"
                 />
               </div>
 
               <div>
-                <Label className="body-text text-gray-700 mb-2">
-                  Property Count ({ranges.propertyCount[0]} - {ranges.propertyCount[1]})
-                </Label>
+                <Label>Property Count ({ranges.propertyCount[0]} - {ranges.propertyCount[1]})</Label>
                 <Slider
-                  defaultValue={[0, 2000]}
+                  defaultValue={initialRanges.propertyCount}
+                  value={ranges.propertyCount}
                   max={2000}
                   step={10}
-                  value={ranges.propertyCount}
                   onValueChange={(value) => handleRangeChange('propertyCount', value)}
-                  className="mt-4"
                 />
               </div>
 
               <div>
-                <Label className="body-text text-gray-700 mb-2">
-                  Total Reviews ({ranges.totalReviews[0]} - {ranges.totalReviews[1]})
-                </Label>
+                <Label>Total Reviews ({ranges.totalReviews[0]} - {ranges.totalReviews[1]})</Label>
                 <Slider
-                  defaultValue={[0, 10001]}
+                  defaultValue={initialRanges.totalReviews}
+                  value={ranges.totalReviews}
                   max={10001}
                   step={100}
-                  value={ranges.totalReviews}
                   onValueChange={(value) => handleRangeChange('totalReviews', value)}
-                  className="mt-4"
                 />
               </div>
 
-              <div className="flex justify-between mt-4">
+              <div className="flex justify-between pt-4">
                 <Button 
                   variant="outline" 
-                  onClick={() => {
-                    setSelectedCountry("")
-                    setSelectedState("")
-                    setRanges({
-                      stars: [0, 5],
-                      propertyCount: [0, 2000],
-                      totalReviews: [0, 10001]
-                    })
-                    onFiltersChange({
-                      country: "",
-                      state: "",
-                      ranges: {
-                        stars: [0, 5],
-                        propertyCount: [0, 2000],
-                        totalReviews: [0, 10001]
-                      }
-                    })
-                  }}
+                  onClick={handleReset}
                   className="body-text"
                   style={{
                     transition: 'background-color 0.3s, box-shadow 0.2s, color 0.3s'
@@ -220,8 +206,9 @@ export default function SearchFilters({
                   style={{
                     transition: 'background-color 0.3s, box-shadow 0.2s, color 0.3s'
                   }}
+                  disabled={isLoading}
                 >
-                  Apply Filters
+                  {isLoading ? 'Applying...' : 'Apply Filters'}
                 </Button>
               </div>
             </div>

@@ -8,10 +8,16 @@ import { formatUrlPath } from '@/lib/utils'
 interface LocationListProps {
   locations: string[];
   basePath: string;
-  title: string;
+  title?: string;
+  shouldSkipCityPage?: boolean;
 }
 
-export default function LocationList({ locations, basePath, title }: LocationListProps) {
+export default function LocationList({ 
+  locations, 
+  basePath, 
+  title = "Select a location:", 
+  shouldSkipCityPage = false
+}: LocationListProps) {
   const [showAll, setShowAll] = useState(false);
   const INITIAL_SHOW_COUNT = 9;
 
@@ -39,18 +45,26 @@ export default function LocationList({ locations, basePath, title }: LocationLis
     <div className="mb-8">
       <h2 className="description-text mb-4">{title}</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {visibleLocations.map((location) => (
-          <Link
-            key={location}
-            href={`${basePath}/${formatUrlPath(location)}`}
-            className="group flex items-center hover:text-gray-400 relative"
-          >
-            <span>{location}</span>
-            <span className="ml-1 inline-block transition-none group-hover:opacity-0 group-hover:animate-fadeSlideIn">
+        {visibleLocations.map(location => {
+          if (shouldSkipCityPage && 
+              location === basePath.split('/').pop() && 
+              location.toLowerCase() !== 'new york') {
+            return null;
+          }
+          
+          return (
+            <Link
+              key={location}
+              href={`${basePath}/${formatUrlPath(location)}`}
+              className="group flex items-center hover:text-gray-400 relative"
+            >
+              <span>{location}</span>
+              <span className="ml-1 inline-block transition-none group-hover:opacity-0 group-hover:animate-fadeSlideIn">
                 ↗
               </span>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
 
       {locations.length > INITIAL_SHOW_COUNT && (

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import PropertyList from "@/components/property-list"
 import SearchFilters from "@/components/search-filters"
-import { PropertyCompany } from "@/lib/data"
+import { PropertyCompany, getFilteredCompanies } from "@/lib/data"
 import { formatUrlPath } from "@/lib/utils"
 import { PrefetchWrapper } from "@/components/prefetch-wrapper"
 
@@ -122,12 +122,24 @@ export default function HomeContent({ companies }: HomeContentProps) {
         }}
       >
         <SearchFilters 
-          onSearchChange={setSearchQuery}
-          onFiltersChange={handleFiltersChange}
+          onFiltersChange={(newFilters) => {
+            setSearchQuery(newFilters.searchQuery);
+            handleFiltersChange(newFilters);
+          }}
           onSortChange={setSortBy}
+          onApplyFilters={async () => {
+            const filtered = await getFilteredCompanies({
+              searchQuery,
+              stars: filters.ranges.stars,
+              propertyCount: filters.ranges.propertyCount,
+              totalReviews: filters.ranges.totalReviews
+            });
+            setFilteredCompanies(filtered as PropertyCompany[]);
+          }}
           filteredCount={filteredCompanies.length}
           totalResults={companies.length}
           companies={companies}
+          isLoading={false}
         />
         <PropertyList 
           searchQuery={searchQuery}

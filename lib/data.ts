@@ -974,3 +974,46 @@ export async function getLocationPaths() {
     return [];
   }
 }
+
+export async function getFilteredCompanies(filters: {
+  stars?: [number, number];
+  propertyCount?: [number, number];
+  totalReviews?: [number, number];
+  searchQuery?: string;
+}) {
+  const { stars, propertyCount, totalReviews, searchQuery } = filters;
+  
+  // Build Airtable filter formula
+  const conditions = [];
+  
+  if (searchQuery) {
+    conditions.push(`SEARCH('${searchQuery.toLowerCase()}', LOWER({Company Name}))`);
+  }
+  
+  if (stars) {
+    conditions.push(`AND({A.Rating} >= ${stars[0]}, {A.Rating} <= ${stars[1]})`);
+  }
+  
+  if (propertyCount) {
+    conditions.push(`AND({Property Count} >= ${propertyCount[0]}, {Property Count} <= ${propertyCount[1]})`);
+  }
+  
+  if (totalReviews) {
+    conditions.push(`AND({Total Reviews} >= ${totalReviews[0]}, {Total Reviews} <= ${totalReviews[1]})`);
+  }
+
+  const filterFormula = conditions.length > 0 
+    ? `AND(${conditions.join(', ')})`
+    : '';
+
+  // Get filtered records from Airtable
+  const records = await fetchWithRetry(() =>
+    base('Marketplace')
+      .select({
+        filterByFormula: filterFormula
+      })
+      .all()
+  );
+
+  return transformProperties(records);
+}

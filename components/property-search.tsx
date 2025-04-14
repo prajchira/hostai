@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react";
+import { getFilteredCompanies } from "@/lib/data";
 import SearchFilters from "./search-filters";
 import PropertyList from "./property-list";
 import { PropertyCompany } from "@/lib/data";
@@ -15,6 +16,7 @@ export default function PropertySearch({
   state?: string;
   city?: string;
 }) {
+  const [companies, setCompanies] = useState(initialCompanies);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("relevance");
   const [filters, setFilters] = useState({
@@ -27,35 +29,45 @@ export default function PropertySearch({
     }
   });
 
-  // Filter companies based on location
-  const filteredCompanies = initialCompanies.filter(company => {
-    if (city) return company.location === city;
-    if (state) return company.state === state;
-    if (country) return company.country === country;
-    return true;
-  });
+  const handleApplyFilters = async () => {
+    const filtered = await getFilteredCompanies({
+      searchQuery,
+      stars: filters.ranges.stars,
+      propertyCount: filters.ranges.propertyCount,
+      totalReviews: filters.ranges.totalReviews
+    });
+    setCompanies(filtered as PropertyCompany[]);
+  };
 
   return (
     <div>
-      <SearchFilters 
-        onSearchChange={setSearchQuery}
-        onFiltersChange={setFilters}
+      <SearchFilters
+        onFiltersChange={(newFilters) => {
+          setSearchQuery(newFilters.searchQuery);
+          setFilters({
+            country: newFilters.country,
+            state: newFilters.state,
+            ranges: newFilters.ranges
+          });
+        }}
         onSortChange={setSortBy}
-        filteredCount={filteredCompanies.length}
+        onApplyFilters={handleApplyFilters}
+        filteredCount={companies.length}
+        totalResults={initialCompanies.length}
         country={country}
         state={state}
         city={city}
-        totalResults={initialCompanies.length}
-        companies={filteredCompanies}
+        companies={companies}
+        isLoading={false}
       />
       <PropertyList 
+        companies={companies}
         searchQuery={searchQuery}
         country={country}
         state={state}
         city={city}
         filters={filters}
         sortBy={sortBy}
-        companies={filteredCompanies}
       />
     </div>
   );

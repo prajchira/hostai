@@ -88,6 +88,7 @@ export default async function StatePage({ params }: { params: { country: string;
               locations={cities}
               basePath={`/${params.country}/${params.state}`}
               title="Select a city to view local property managers:"
+              shouldSkipCityPage={stateName === cities[0]}
             />
 
             <PropertySearch 
