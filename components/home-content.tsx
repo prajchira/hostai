@@ -28,6 +28,7 @@ export default function HomeContent({ companies }: HomeContentProps) {
   const [showAll, setShowAll] = useState(false)
   const INITIAL_SHOW_COUNT = 9
   const [filteredCompanies, setFilteredCompanies] = useState(companies);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFiltersChange = (newFilters: typeof filters) => {
     setFilters(newFilters);
@@ -65,15 +66,29 @@ export default function HomeContent({ companies }: HomeContentProps) {
   const allPaths = priorityBatches;
   
 
-  // Update filtered companies when filters change
-  useEffect(() => {
-    const filtered = companies.filter(company => {
-      // Apply your filtering logic here
-      return true; // Replace with actual filtering
-    });
+  const handleApplyFilters = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Applying filters:', {
+        stars: filters.ranges.stars,
+        propertyCount: filters.ranges.propertyCount,
+        totalReviews: filters.ranges.totalReviews
+      });
 
-    setFilteredCompanies(filtered);
-  }, [filters, searchQuery, companies]);
+      const filtered = await getFilteredCompanies({
+        stars: filters.ranges.stars,
+        propertyCount: filters.ranges.propertyCount,
+        totalReviews: filters.ranges.totalReviews
+      });
+      
+      console.log('Filtered results:', filtered);
+      setFilteredCompanies(filtered as PropertyCompany[]);
+    } catch (error) {
+      console.error('Filter error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <>
@@ -122,24 +137,16 @@ export default function HomeContent({ companies }: HomeContentProps) {
         }}
       >
         <SearchFilters 
-          onFiltersChange={(newFilters) => {
+          onFiltersChange={async (newFilters) => {
             setSearchQuery(newFilters.searchQuery);
-            handleFiltersChange(newFilters);
+            setFilters(newFilters);
           }}
           onSortChange={setSortBy}
-          onApplyFilters={async () => {
-            const filtered = await getFilteredCompanies({
-              searchQuery,
-              stars: filters.ranges.stars,
-              propertyCount: filters.ranges.propertyCount,
-              totalReviews: filters.ranges.totalReviews
-            });
-            setFilteredCompanies(filtered as PropertyCompany[]);
-          }}
+          onApplyFilters={handleApplyFilters}
           filteredCount={filteredCompanies.length}
           totalResults={companies.length}
-          companies={companies}
-          isLoading={false}
+          companies={filteredCompanies}
+          isLoading={isLoading}
         />
         <PropertyList 
           searchQuery={searchQuery}

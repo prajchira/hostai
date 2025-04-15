@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Star, CheckCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { getPropertyCompanies, PropertyCompany } from "@/lib/data"
+import { fetchPropertyCompanyById, getPropertyCompanies, PropertyCompany } from "@/lib/data"
 import { FixedSizeList as List } from 'react-window'
 import AutoSizer from 'react-virtualized-auto-sizer'
 
@@ -50,54 +50,16 @@ export default function PropertyList({ searchQuery, country, state, city, filter
     fetchData();
   }, []);
 
-  let filteredProperties = companies.filter(property => {
-    const search = searchQuery.toLowerCase();
-    const matchesSearch = 
-      property.name.toLowerCase().includes(search) ||
-      property.location.toLowerCase().includes(search) ||
-      property.state.toLowerCase().includes(search) ||
-      property.country.toLowerCase().includes(search) ||
-      (property.description?.toLowerCase().includes(search) ?? false);
-
-    // Skip range filtering if filters are null
-    if (!filters) return matchesSearch;
-
-    // Apply range filters only if they exist
-    const matchesRanges = !filters.ranges || (
-      (property.rating ?? 0) >= filters.ranges.stars[0] && 
-      (property.rating ?? 0) <= filters.ranges.stars[1] &&
-      (property.propertyCount ?? 0) >= filters.ranges.propertyCount[0] &&
-      (property.propertyCount ?? 0) <= filters.ranges.propertyCount[1] &&
-      (property.totalReviews ?? 0) >= filters.ranges.totalReviews[0] &&
-      (property.totalReviews ?? 0) <= filters.ranges.totalReviews[1]
-    );
-
-    // Check location filters
-    if (country && state && city) {
-      return matchesSearch && matchesRanges &&
-        property.country.toLowerCase() === country.toLowerCase() &&
-        property.state.toLowerCase() === state.toLowerCase() &&
-        property.location.toLowerCase() === city.toLowerCase();
-    }
-    else if (country && state) {
-      return matchesSearch && matchesRanges &&
-        property.country.toLowerCase() === country.toLowerCase() &&
-        property.state.toLowerCase() === state.toLowerCase();
-    }
-    else if (country) {
-      return matchesSearch && matchesRanges &&
-        property.country.toLowerCase() === country.toLowerCase();
-    }
-
-    // Log why a property might be filtered out
-    // if (!matchesSearch) console.log(`${property.name} filtered out by search`);
-    // if (!matchesRanges) console.log(`${property.name} filtered out by ranges`);
-
-    return matchesSearch && matchesRanges;
-  });
+  const filteredProperties = companies.filter(company => 
+    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    company.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Add sorting logic
-  filteredProperties = [...filteredProperties].sort((a, b) => {
+  const sortedProperties = [...filteredProperties].sort((a, b) => {
     switch (sortBy) {
       case 'rating':
         return (b.rating ?? 0) - (a.rating ?? 0);
@@ -113,7 +75,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
   });
 
   // Only show the number of items specified by displayedCount
-  const displayedProperties = filteredProperties.slice(0, displayedCount);
+  const displayedProperties = sortedProperties.slice(0, displayedCount);
 
   // Calculate total height based on number of items
   const totalHeight = displayedProperties.length * 200;
@@ -121,10 +83,10 @@ export default function PropertyList({ searchQuery, country, state, city, filter
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && !isLoading && displayedCount < filteredProperties.length) {
+        if (entries[0].isIntersecting && !isLoading && displayedCount < sortedProperties.length) {
           setIsLoading(true);
           setTimeout(() => {
-            setDisplayedCount(prev => Math.min(prev + 10, filteredProperties.length));
+            setDisplayedCount(prev => Math.min(prev + 10, sortedProperties.length));
             setIsLoading(false);
           }, 300);
         }
@@ -141,7 +103,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
     }
 
     return () => observer.disconnect();
-  }, [displayedCount, filteredProperties.length, isLoading]);
+  }, [displayedCount, sortedProperties.length, isLoading]);
 
   // Update window height on mount and resize
   useEffect(() => {
@@ -272,7 +234,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
       </AutoSizer>
       
       {/* Position the observer at the bottom of the actual content */}
-      {displayedCount < filteredProperties.length && (
+      {displayedCount < sortedProperties.length && (
         <div 
           ref={observerTarget}
           className="absolute w-full"

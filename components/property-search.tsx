@@ -30,19 +30,40 @@ export default function PropertySearch({
   });
 
   const handleApplyFilters = async () => {
-    const filtered = await getFilteredCompanies({
+    console.log('Applying filters:', {
       searchQuery,
       stars: filters.ranges.stars,
       propertyCount: filters.ranges.propertyCount,
-      totalReviews: filters.ranges.totalReviews
+      totalReviews: filters.ranges.totalReviews,
+      country,
+      state,
+      city
     });
+
+    const filtered = await getFilteredCompanies({
+      stars: filters.ranges.stars,
+      propertyCount: filters.ranges.propertyCount,
+      totalReviews: filters.ranges.totalReviews,
+      country,
+      state,
+      city
+    });
+
+    console.log('Filtered results:', filtered.map(p => ({
+      name: p.name,
+      rating: p.rating,
+      propertyCount: p.propertyCount,
+      totalReviews: p.totalReviews,
+      location: `${p.location}, ${p.state}, ${p.country}`
+    })));
+
     setCompanies(filtered as PropertyCompany[]);
   };
 
   return (
     <div>
       <SearchFilters
-        onFiltersChange={(newFilters) => {
+        onFiltersChange={async (newFilters) => {
           setSearchQuery(newFilters.searchQuery);
           setFilters({
             country: newFilters.country,

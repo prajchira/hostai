@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, SlidersHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,7 +18,7 @@ interface SearchFiltersProps {
     country: string;
     state: string;
     ranges: FilterRanges;
-  }) => void;
+  }) => Promise<void>;
   onSortChange: (sort: string) => void;
   onApplyFilters: () => Promise<void>;
   filteredCount: number;
@@ -66,6 +66,20 @@ export default function SearchFilters({
     "England": ["London", "Manchester", "Birmingham", "Liverpool", "Leeds"]
   }
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onFiltersChange({
+        searchQuery,
+        country: selectedCountry,
+        state: selectedState,
+        ranges
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedCountry, selectedState, onFiltersChange]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   }
@@ -87,14 +101,14 @@ export default function SearchFilters({
     : 'all locations';
 
   const handleApplyFilters = async () => {
-    onFiltersChange({
+    await onFiltersChange({
       searchQuery,
       country: selectedCountry,
       state: selectedState,
       ranges
     });
     await onApplyFilters();
-    setIsOpen(false); // Close sheet after applying
+    setIsOpen(false);
   }
 
   const handleReset = () => {
@@ -102,6 +116,12 @@ export default function SearchFilters({
     setSelectedCountry("");
     setSelectedState("");
     setRanges(initialRanges);
+    onFiltersChange({
+      searchQuery: "",
+      country: "",
+      state: "",
+      ranges: initialRanges
+    });
   }
 
   return (
