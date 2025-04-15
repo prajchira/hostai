@@ -12,16 +12,19 @@ import { formatUrlPath } from '@/lib/utils'
 
 import { BreadcrumbNav } from "@/components/breadcrumb-nav"
 
-
-
 // Dynamically import heavy components
 const ContactManagerDialog = dynamic(() => import('./contact-manager-dialog'), {
   loading: () => <p>Loading...</p>,
   ssr: false // If it's client-only
 })
 
-
 const PropertyList = dynamic(() => import('./property-list'))
+
+// At the top with other dynamic imports
+const SuggestedCompanies = dynamic(() => import('./suggested-companies').then(mod => mod.SuggestedCompanies), {
+  loading: () => <div>Loading suggestions...</div>,
+  ssr: false // Since it makes API calls
+})
 
 interface PropertyDetailProps {
   property: PropertyCompany;
@@ -34,6 +37,7 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
   const [cityProperties, setCityProperties] = useState<PropertyCompany[]>([]);
   const [stateProperties, setStateProperties] = useState<PropertyCompany[]>([]);
   const [countryProperties, setCountryProperties] = useState<PropertyCompany[]>([]);
+  const [usePlaceholder, setUsePlaceholder] = useState(false);
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => {
@@ -113,49 +117,35 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
     return state.toLowerCase() === city.toLowerCase() && state.toLowerCase() !== 'new york';
   }
 
-  // Add this function to get related properties
-  async function getRelatedProperties(property: PropertyCompany) {
-    // Get properties for each level in parallel
-    const [cityProps, stateProps, countryProps] = await Promise.all([
-      // City properties
-      getFilteredCompanies({
-        city: property.location,
-        state: property.state,
-        country: property.country
-      }),
-      // State properties (excluding same city)
-      getFilteredCompanies({
-        state: property.state,
-        country: property.country
-      }),
-      // Country properties (excluding same state)
-      getFilteredCompanies({
-        country: property.country
-      })
-    ]);
-
-    return {
-      cityProperties: cityProps.filter(p => p.actualID !== property.actualID).slice(0, 5),
-      stateProperties: stateProps.filter(p => 
-        p.actualID !== property.actualID && 
-        p.location !== property.location
-      ).slice(0, 5),
-      countryProperties: countryProps.filter(p => 
-        p.actualID !== property.actualID && 
-        p.state !== property.state
-      ).slice(0, 5)
-    };
-  }
-
+  // Pre-filter companies on mount instead of fetching
   useEffect(() => {
-    async function loadRelated() {
-      const related = await getRelatedProperties(property);
-      setCityProperties(related.cityProperties as PropertyCompany[]);
-      setStateProperties(related.stateProperties as PropertyCompany[]);
-      setCountryProperties(related.countryProperties as PropertyCompany[]);
-    }
-    loadRelated();
-  }, [property]);
+    // Filter city properties
+    const citySuggestions = companies.filter(c => 
+      c.actualID !== property.actualID &&
+      c.location === property.location &&
+      c.state === property.state &&
+      c.country === property.country
+    ).slice(0, 5);
+
+    // Filter state properties
+    const stateSuggestions = companies.filter(c => 
+      c.actualID !== property.actualID &&
+      c.state === property.state &&
+      c.country === property.country &&
+      c.location !== property.location
+    ).slice(0, 5);
+
+    // Filter country properties
+    const countrySuggestions = companies.filter(c => 
+      c.actualID !== property.actualID &&
+      c.country === property.country &&
+      c.state !== property.state
+    ).slice(0, 5);
+
+    setCityProperties(citySuggestions);
+    setStateProperties(stateSuggestions);
+    setCountryProperties(countrySuggestions);
+  }, [property, companies]);
 
   return (
     <>
@@ -180,12 +170,13 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
               <div className="flex items-center gap-6 mb-8">
                 <div className="relative w-32 h-32 rounded-[var(--radius)] overflow-hidden bg-white border">
                   <Image
-                    src={property.logo || "/placeholder.svg"}
+                    src={usePlaceholder ? "/placeholder.svg" : (property.logo || "/placeholder.svg")}
                     alt={`${property.name} logo`}
                     fill
                     className="object-contain p-2"
                     sizes="32px"
                     unoptimized={property.logo?.startsWith('http')}
+                    onError={() => setUsePlaceholder(true)}
                   />
                 </div>
                 <div>
@@ -500,57 +491,9 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
             {/* Full width suggested companies section */}
             <div>
               <h1 className="large-heading mb-6">Suggested Companies</h1>
-              
-              {/* Similar Properties in City */}
-              <div className="mb-12">
-                <div className="border-t border-gray-200 pt-12 mb-12">
-                  <h2 className="mid-heading mb-6">More Property Managers in {property.location}</h2>
-                  {cityProperties.length > 0 ? (
-                    <PropertyList
-                      searchQuery=""
-                      country={property.country}
-                      state={property.state}
-                      city={property.location}
-                      companies={cityProperties}
-                    />
-                  ) : (
-                    <div className="bg-white rounded-[var(--radius)] border p-8 text-center">
-                      <p className="text-gray-500">No other property managers found in {property.location}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            {/* Property Managers in State */}
-            {stateProperties.length > 0 && (
-              <div className="mb-12">
-                <div className="border-t border-gray-200 pt-12">
-                  <h2 className="mid-heading mb-6">Property Managers in {property.state}</h2>
-                  <PropertyList
-                    searchQuery=""
-                    country={property.country}
-                    state={property.state}
-                    companies={stateProperties}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Property Managers in Country */}
-            {countryProperties.length > 0 && (
-              <div className="mb-12">
-                <div className="border-t border-gray-200 pt-12">
-                  <h2 className="mid-heading mb-6">Property Managers in {property.country}</h2>
-                  <PropertyList
-                    searchQuery=""
-                    country={property.country}
-                    companies={countryProperties}
-                  />
-                </div>
-              </div>
-            )}
+              <SuggestedCompanies property={property} />
+            </div>
           </div>
-        </div>
       </main>
     </>
   )

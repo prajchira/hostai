@@ -27,6 +27,9 @@ interface PropertyListProps {
   companies: PropertyCompany[];
 }
 
+// Add at the top of the file, outside the component
+const failedImageUrls = new Set<string>();
+
 export default function PropertyList({ searchQuery, country, state, city, filters = null, sortBy, companies }: PropertyListProps) {
   const [displayedCount, setDisplayedCount] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,6 +88,10 @@ export default function PropertyList({ searchQuery, country, state, city, filter
       entries => {
         if (entries[0].isIntersecting && !isLoading && displayedCount < sortedProperties.length) {
           setIsLoading(true);
+          
+          // Remove manual prefetching since Next.js Link components 
+          // will handle this automatically when they come into view
+          
           setTimeout(() => {
             setDisplayedCount(prev => Math.min(prev + 10, sortedProperties.length));
             setIsLoading(false);
@@ -120,8 +127,19 @@ export default function PropertyList({ searchQuery, country, state, city, filter
     return state.toLowerCase() === city.toLowerCase() && state.toLowerCase() !== 'new york';
   }
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+  const Row = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
     const company = displayedProperties[index];
+    const [usePlaceholder, setUsePlaceholder] = useState(
+      // Use placeholder immediately if URL is known to fail
+      failedImageUrls.has(company.logo || '')
+    );
+
+    const handleImageError = () => {
+      // Add to failed URLs set
+      failedImageUrls.add(company.logo || '');
+      setUsePlaceholder(true);
+    };
+
     return (
       <div style={style}>
         <Link 
@@ -134,7 +152,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
               <div className="shrink-0">
                 <div className="relative w-24 h-24 rounded-[var(--radius)] overflow-hidden bg-white border">
                   <Image
-                    src={company.logo || "/placeholder.svg"}
+                    src={usePlaceholder ? "/placeholder.svg" : (company.logo || "/placeholder.svg")}
                     alt={`${company.name} logo`}
                     fill
                     className="object-contain p-2"
@@ -142,6 +160,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
                     priority={index < 3}
                     loading={index < 3 ? "eager" : "lazy"}
                     unoptimized={company.logo?.startsWith('http')}
+                    onError={handleImageError}
                   />
                 </div>
               </div>
@@ -210,9 +229,7 @@ export default function PropertyList({ searchQuery, country, state, city, filter
         </Link>
       </div>
     );
-  };
-
-  
+  }, [displayedProperties]);
 
   return (
     <div className="relative" style={{ height: `${Math.max(totalHeight, 300)}px` }}>
