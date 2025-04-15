@@ -4,8 +4,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { ChevronRight, Star, Globe, Facebook, Twitter, Linkedin, ChevronLeft, CheckCircle, House } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { PropertyCompany } from "@/lib/data"
-import React from "react"
+import { getFilteredCompanies, PropertyCompany } from "@/lib/data"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import dynamic from 'next/dynamic'
 import { formatUrlPath } from '@/lib/utils'
@@ -31,6 +31,9 @@ interface PropertyDetailProps {
 export default function PropertyDetail({ property, companies }: PropertyDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [isContactOpen, setIsContactOpen] = React.useState(false);
+  const [cityProperties, setCityProperties] = useState<PropertyCompany[]>([]);
+  const [stateProperties, setStateProperties] = useState<PropertyCompany[]>([]);
+  const [countryProperties, setCountryProperties] = useState<PropertyCompany[]>([]);
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => {
@@ -72,23 +75,6 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
     });
   };
 
-  const similarProperties = companies.filter(c => 
-    c.id !== property.id && 
-    c.location.toLowerCase() === property.location.toLowerCase()
-  );
-
-  const stateProperties = companies.filter(c => 
-    c.id !== property.id && 
-    c.state.toLowerCase() === property.state.toLowerCase() &&
-    c.location.toLowerCase() !== property.location.toLowerCase()
-  ).slice(0, 5);
-
-  const countryProperties = companies.filter(c => 
-    c.id !== property.id && 
-    c.country.toLowerCase() === property.country.toLowerCase() &&
-    c.state.toLowerCase() !== property.state.toLowerCase()
-  ).slice(0, 5);
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -127,6 +113,49 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
     return state.toLowerCase() === city.toLowerCase() && state.toLowerCase() !== 'new york';
   }
 
+  // Add this function to get related properties
+  async function getRelatedProperties(property: PropertyCompany) {
+    // Get properties for each level in parallel
+    const [cityProps, stateProps, countryProps] = await Promise.all([
+      // City properties
+      getFilteredCompanies({
+        city: property.location,
+        state: property.state,
+        country: property.country
+      }),
+      // State properties (excluding same city)
+      getFilteredCompanies({
+        state: property.state,
+        country: property.country
+      }),
+      // Country properties (excluding same state)
+      getFilteredCompanies({
+        country: property.country
+      })
+    ]);
+
+    return {
+      cityProperties: cityProps.filter(p => p.actualID !== property.actualID).slice(0, 5),
+      stateProperties: stateProps.filter(p => 
+        p.actualID !== property.actualID && 
+        p.location !== property.location
+      ).slice(0, 5),
+      countryProperties: countryProps.filter(p => 
+        p.actualID !== property.actualID && 
+        p.state !== property.state
+      ).slice(0, 5)
+    };
+  }
+
+  useEffect(() => {
+    async function loadRelated() {
+      const related = await getRelatedProperties(property);
+      setCityProperties(related.cityProperties as PropertyCompany[]);
+      setStateProperties(related.stateProperties as PropertyCompany[]);
+      setCountryProperties(related.countryProperties as PropertyCompany[]);
+    }
+    loadRelated();
+  }, [property]);
 
   return (
     <>
@@ -476,13 +505,13 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
               <div className="mb-12">
                 <div className="border-t border-gray-200 pt-12 mb-12">
                   <h2 className="mid-heading mb-6">More Property Managers in {property.location}</h2>
-                  {similarProperties.length > 0 ? (
+                  {cityProperties.length > 0 ? (
                     <PropertyList
                       searchQuery=""
                       country={property.country}
                       state={property.state}
                       city={property.location}
-                      companies={similarProperties}
+                      companies={cityProperties}
                     />
                   ) : (
                     <div className="bg-white rounded-[var(--radius)] border p-8 text-center">
@@ -495,7 +524,7 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
             {/* Property Managers in State */}
             {stateProperties.length > 0 && (
               <div className="mb-12">
-                <div className="border-gray-200 pt-12 mb-12">
+                <div className="border-t border-gray-200 pt-12">
                   <h2 className="mid-heading mb-6">Property Managers in {property.state}</h2>
                   <PropertyList
                     searchQuery=""
@@ -510,7 +539,7 @@ export default function PropertyDetail({ property, companies }: PropertyDetailPr
             {/* Property Managers in Country */}
             {countryProperties.length > 0 && (
               <div className="mb-12">
-                <div className="border-t border-gray-200 pt-12 mb-12">
+                <div className="border-t border-gray-200 pt-12">
                   <h2 className="mid-heading mb-6">Property Managers in {property.country}</h2>
                   <PropertyList
                     searchQuery=""

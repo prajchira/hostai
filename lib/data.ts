@@ -515,10 +515,9 @@ const linkedRecordCache = new Map<string, Record<FieldSet>>();
 
 // Optimize property transformation with batch fetching
 async function transformProperties(records: Record<FieldSet>[]) {
-  console.time('Property Transform Total');
+  // console.time('Property Transform Total');
   
-  // 1. First collect all unique location IDs
-  console.time('Collect IDs');
+  // console.time('Collect IDs');
   const locationIds = {
     Countries: new Set<string>(),
     States: new Set<string>(),
@@ -534,19 +533,17 @@ async function transformProperties(records: Record<FieldSet>[]) {
     if (stateId) locationIds.States.add(stateId);
     if (cityId) locationIds.Cities.add(cityId);
   });
-  console.timeEnd('Collect IDs');
+  // console.timeEnd('Collect IDs');
 
-  // 2. Batch fetch all locations in parallel
-  console.time('Batch Location Fetch');
+  // console.time('Batch Location Fetch');
   await Promise.all([
     prefetchLocations('Countries'),
     prefetchLocations('States'),
     prefetchLocations('Cities')
   ]);
-  console.timeEnd('Batch Location Fetch');
+  // console.timeEnd('Batch Location Fetch');
 
-  // 3. Transform records using cached data
-  console.time('Transform Records');
+  // console.time('Transform Records');
   const properties = records.map(record => {
     const countryId = (record.get('HQ Country') as string[])?.[0];
     const stateId = (record.get('HQ State') as string[])?.[0];
@@ -574,15 +571,15 @@ async function transformProperties(records: Record<FieldSet>[]) {
       totalReviews: Number(record.get('A.Reviews')) || undefined,
     };
   });
-  console.timeEnd('Transform Records');
+  // console.timeEnd('Transform Records');
 
-  console.timeEnd('Property Transform Total');
+  // console.timeEnd('Property Transform Total');
   return properties;
 }
 
 // Update the data fetching functions to use the new transformer
 export const getCountryData = cache(async (country: string) => {
-  console.time('getCountryData Total');
+  // console.time('getCountryData Total');
   
   const formattedCountry = await normalizeLocationName(country, 'Countries');
 
@@ -612,7 +609,7 @@ export const getCountryData = cache(async (country: string) => {
 
   const properties = await transformProperties(propertyRecords);
 
-  console.timeEnd('getCountryData Total');
+  // console.timeEnd('getCountryData Total');
   return {
     records: properties,
     countryBio: countryRecords[0]?.get('Country Bio')?.toString()
@@ -620,21 +617,21 @@ export const getCountryData = cache(async (country: string) => {
 });
 
 export const getStateData = cache(async (state: string, country: string) => {
-  console.time('getStateData Total');
+  // console.time('getStateData Total');
   
   const formattedState = await normalizeLocationName(state, 'States');
   const formattedCountry = await normalizeLocationName(country, 'Countries');
 
   // Prefetch all location data in parallel if not already cached
-  console.time('Location Prefetch');
+  // console.time('Location Prefetch');
   await Promise.all([
     prefetchLocations('Countries'),
     prefetchLocations('States'),
     prefetchLocations('Cities')
   ]);
-  console.timeEnd('Location Prefetch');
+  // console.timeEnd('Location Prefetch');
 
-  console.time('Data Fetching');
+  // console.time('Data Fetching');
   const [stateRecords, propertyRecords] = await Promise.all([
     fetchWithRetry(() =>
       base('States')
@@ -652,9 +649,9 @@ export const getStateData = cache(async (state: string, country: string) => {
         .all()
     )
   ]);
-  console.timeEnd('Data Fetching');
+  // console.timeEnd('Data Fetching');
 
-  console.time('Property Transformation');
+  // console.time('Property Transformation');
   const properties = propertyRecords.map((record: Record<FieldSet>) => {
     const countryId = (record.get('HQ Country') as string[])?.[0];
     const stateId = (record.get('HQ State') as string[])?.[0];
@@ -682,9 +679,9 @@ export const getStateData = cache(async (state: string, country: string) => {
       totalReviews: Number(record.get('A.Reviews')) || undefined,
     };
   });
-  console.timeEnd('Property Transformation');
+  // console.timeEnd('Property Transformation');
 
-  console.timeEnd('getStateData Total');
+  // console.timeEnd('getStateData Total');
   return {
     records: properties,
     stateBio: stateRecords[0]?.get('State Bio')?.toString()
@@ -692,22 +689,22 @@ export const getStateData = cache(async (state: string, country: string) => {
 });
 
 export const getCityData = cache(async (city: string, state: string, country: string) => {
-  console.time('getCityData Total');
+  // console.time('getCityData Total');
   
   const formattedCity = await normalizeLocationName(city, 'Cities');
   const formattedState = await normalizeLocationName(state, 'States');
   const formattedCountry = await normalizeLocationName(country, 'Countries');
 
   // Use existing location cache
-  console.time('Location Prefetch');
+  // console.time('Location Prefetch');
   await Promise.all([
     prefetchLocations('Countries'),
     prefetchLocations('States'),
     prefetchLocations('Cities')
   ]);
-  console.timeEnd('Location Prefetch');
+  // console.timeEnd('Location Prefetch');
 
-  console.time('Data Fetching');
+  // console.time('Data Fetching');
   const [cityRecords, propertyRecords] = await Promise.all([
     fetchWithRetry(() =>
       base('Cities')
@@ -725,9 +722,9 @@ export const getCityData = cache(async (city: string, state: string, country: st
         .all()
     )
   ]);
-  console.timeEnd('Data Fetching');
+  // console.timeEnd('Data Fetching');
 
-  console.time('Property Transformation');
+  // console.time('Property Transformation');
   const properties = propertyRecords.map((record: Record<FieldSet>) => {
     const countryId = (record.get('HQ Country') as string[])?.[0];
     const stateId = (record.get('HQ State') as string[])?.[0];
@@ -755,9 +752,9 @@ export const getCityData = cache(async (city: string, state: string, country: st
       totalReviews: Number(record.get('A.Reviews')) || undefined,
     };
   });
-  console.timeEnd('Property Transformation');
+  // console.timeEnd('Property Transformation');
 
-  console.timeEnd('getCityData Total');
+  // console.timeEnd('getCityData Total');
   return {
     records: properties,
     cityBio: cityRecords[0]?.get('City Bio')?.toString()
@@ -990,26 +987,24 @@ export async function getFilteredCompanies(filters: {
   
   const conditions = [];
   
-  // Add location filters
+  // Add location filters with exact matches
   if (city) {
-    conditions.push(`SEARCH('${city.toLowerCase()}', LOWER({HQ City}))`);
+    conditions.push(`{HQ City} = '${city}'`);
   }
-  else if (state) {
-    conditions.push(`SEARCH('${state.toLowerCase()}', LOWER({HQ State}))`);
+  if (state) {
+    conditions.push(`{HQ State} = '${state}'`);
   }
-  else if (country) {
-    conditions.push(`SEARCH('${country.toLowerCase()}', LOWER({HQ Country}))`);
+  if (country) {
+    conditions.push(`{HQ Country} = '${country}'`);
   }
   
   // Add range filters
   if (stars) {
     conditions.push(`AND({A.Rating} >= ${stars[0]}, {A.Rating} <= ${stars[1]})`);
   }
-  
   if (propertyCount) {
     conditions.push(`AND({A.Listings} >= ${propertyCount[0]}, {A.Listings} <= ${propertyCount[1]})`);
   }
-  
   if (totalReviews) {
     conditions.push(`AND({A.Reviews} >= ${totalReviews[0]}, {A.Reviews} <= ${totalReviews[1]})`);
   }
@@ -1017,6 +1012,8 @@ export async function getFilteredCompanies(filters: {
   const filterFormula = conditions.length > 0 
     ? `AND(${conditions.join(', ')})`
     : '';
+
+  console.log('Filter formula:', filterFormula);
 
   const records = await fetchWithRetry(() =>
     base('Marketplace')
